@@ -214,39 +214,40 @@ button, select { font: inherit; }
 }
 .atlas-root .leaflet-control-zoom a:last-child { border-bottom-width: 1px !important; }
 
-.atlas-mapfooter {
-  position: absolute; left: 16px; bottom: 16px; right: 16px;
-  display: flex; align-items: stretch; gap: 12px;
-  pointer-events: none;
-}
-.atlas-mapfooter > * { pointer-events: auto; }
-.atlas-legend {
+.atlas-map-key {
+  position: absolute; top: 16px; left: 16px; z-index: 1001;
   background: var(--card); border: 1px solid var(--rule);
-  padding: 10px 14px;
-  box-shadow: 0 2px 6px rgba(14,23,38,0.04);
-  min-width: 0;
+  padding: 12px 16px;
+  box-shadow: 0 2px 8px rgba(14,23,38,0.10);
+  pointer-events: auto;
 }
-.atlas-legend .lt {
+.atlas-map-key .lt {
   font-family: "IBM Plex Mono", monospace; font-size: 10px;
   color: var(--ink-mute); letter-spacing: 0.12em; text-transform: uppercase;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
-.atlas-legend .strip { display: flex; height: 8px; width: 240px; }
-.atlas-legend .strip span { flex: 1; }
-.atlas-legend .ticks {
-  display: flex; justify-content: space-between; width: 240px;
+.atlas-map-key .strip { display: flex; height: 10px; width: 220px; }
+.atlas-map-key .strip span { flex: 1; }
+.atlas-map-key .ticks {
+  display: flex; justify-content: space-between; width: 220px;
   font-family: "IBM Plex Mono", monospace; font-size: 10px;
   color: var(--ink-soft); margin-top: 5px;
 }
-.atlas-legend .legend-dir {
-  display: flex; justify-content: space-between; width: 240px;
-  font-family: "IBM Plex Mono", monospace; font-size: 9.5px;
-  color: var(--ink-mute); margin-top: 3px; letter-spacing: 0.06em;
+.atlas-map-key .legend-dir {
+  display: flex; justify-content: space-between; width: 220px;
+  font-family: "IBM Plex Mono", monospace; font-size: 9px;
+  color: var(--ink-mute); margin-top: 2px; letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.atlas-legend .keys { display: flex; gap: 14px; flex-wrap: wrap; }
-.atlas-legend .keys .k { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-soft); }
-.atlas-legend .keys .sw { width: 14px; height: 14px; border-radius: 2px; }
+.atlas-map-key .keys { display: flex; flex-direction: column; gap: 6px; }
+.atlas-map-key .keys .k { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-soft); }
+.atlas-map-key .keys .sw { width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0; }
+
+.atlas-mapfooter {
+  position: absolute; left: 16px; bottom: 16px; right: 16px;
+  pointer-events: none;
+}
+.atlas-mapfooter > * { pointer-events: auto; }
 
 .atlas-readout {
   flex: 1; background: var(--card); border: 1px solid var(--rule);

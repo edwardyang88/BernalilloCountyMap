@@ -205,21 +205,21 @@ function Atlas({ tracts, commissionDistricts }) {
 
       <div className="atlas-map-wrap">
         <div id="map" className="atlas-map"></div>
+        {appMode === 'single' ? <div className="atlas-map-key">
+          <div className="lt">{title}</div>
+          <div className="strip">{atlasRampStops.map((c, i) => <span key={i} style={{ background: c }}></span>)}</div>
+          <div className="ticks"><span>{H.fmt(stats.min, unit)}</span><span>{H.fmt(stats.avg, unit)}</span><span>{H.fmt(stats.max, unit)}</span></div>
+          <div className="legend-dir"><span>{higherWorse ? 'Better' : 'Lower'}</span><span>{higherWorse ? 'Worse' : 'Higher'}</span></div>
+        </div> : <div className="atlas-map-key">
+          <div className="lt">Legend</div>
+          <div className="keys">
+            <span className="k"><span className="sw" style={{ background: atlasIntersect.both }}></span>Both conditions</span>
+            <span className="k"><span className="sw" style={{ background: atlasIntersect.a }}></span>A only</span>
+            <span className="k"><span className="sw" style={{ background: atlasIntersect.b }}></span>B only</span>
+            <span className="k"><span className="sw" style={{ background: atlasIntersect.neither }}></span>Neither</span>
+          </div>
+        </div>}
         <div className="atlas-mapfooter">
-          {appMode === 'single' ? <div className="atlas-legend">
-            <div className="lt">{title}</div>
-            <div className="strip">{atlasRampStops.map((c, i) => <span key={i} style={{ background: c }}></span>)}</div>
-            <div className="ticks"><span>{H.fmt(stats.min, unit)}</span><span>{H.fmt(stats.avg, unit)}</span><span>{H.fmt(stats.max, unit)}</span></div>
-            <div className="legend-dir"><span>{higherWorse ? 'Better' : 'Lower'}</span><span>{higherWorse ? 'Worse' : 'Higher'}</span></div>
-          </div> : <div className="atlas-legend">
-            <div className="lt">Group</div>
-            <div className="keys">
-              <span className="k"><span className="sw" style={{ background: atlasIntersect.both }}></span>Both conditions</span>
-              <span className="k"><span className="sw" style={{ background: atlasIntersect.a }}></span>A only</span>
-              <span className="k"><span className="sw" style={{ background: atlasIntersect.b }}></span>B only</span>
-              <span className="k"><span className="sw" style={{ background: atlasIntersect.neither }}></span>Neither</span>
-            </div>
-          </div>}
           <div className="atlas-readout">
             {appMode === 'intersection' ? <>
               <div className="col"><div className="rk">A</div><div className="rt">{metricA.label} · <span className="rd">{conditionA === 'bottom' ? '≤ ' : '≥ '}{H.fmt(intersection.thresholdA, metricA.unit)}</span></div></div>
