@@ -13,7 +13,7 @@ function Atlas({ tracts, commissionDistricts }) {
   const layerRef = useRef(null);
   const districtRef = useRef(null);
 
-  const [appMode, setAppMode] = useState('intersection');
+  const [appMode, setAppMode] = useState('single');
   const [layerKey, setLayerKey] = useState('overall');
   const [mode, setMode] = useState('score');
   const [showDistricts, setShowDistricts] = useState(true);
@@ -27,6 +27,7 @@ function Atlas({ tracts, commissionDistricts }) {
   const column = effectiveMode === 'score' ? layer.scoreCol : layer.rawCol;
   const unit = effectiveMode === 'score' ? 'score' : layer.rawUnit;
   const title = effectiveMode === 'score' ? `${layer.shortLabel} score` : layer.rawLabel;
+  const higherWorse = effectiveMode === 'raw' && layer.rawDirection === 'higher_worse';
   const metricA = H.metricByKey(metricAKey);
   const metricB = H.metricByKey(metricBKey);
 
@@ -47,7 +48,6 @@ function Atlas({ tracts, commissionDistricts }) {
       }).addTo(mapRef.current);
     }
     if (layerRef.current) layerRef.current.remove();
-    if (districtRef.current) { districtRef.current.remove(); districtRef.current = null; }
 
     if (appMode === 'intersection') {
       layerRef.current = L.geoJSON(tracts, {
@@ -67,7 +67,6 @@ function Atlas({ tracts, commissionDistricts }) {
         }
       }).addTo(mapRef.current);
     } else {
-      const higherWorse = effectiveMode === 'raw' && layer.rawDirection === 'higher_worse';
       layerRef.current = L.geoJSON(tracts, {
         style: (f) => {
           const v = H.displayValue(f, column);
@@ -81,15 +80,20 @@ function Atlas({ tracts, commissionDistricts }) {
       }).addTo(mapRef.current);
     }
 
+    mapRef.current.fitBounds(layerRef.current.getBounds(), { padding: [16, 16] });
+    setTimeout(() => mapRef.current && mapRef.current.invalidateSize(), 50);
+  }, [tracts, column, effectiveMode, layer.rawDirection, stats.min, stats.max, appMode, metricAKey, conditionA, metricBKey, conditionB, intersection.thresholdA, intersection.thresholdB]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (districtRef.current) { districtRef.current.remove(); districtRef.current = null; }
     if (showDistricts && districts) {
       districtRef.current = L.geoJSON(districts, {
         style: () => ({ color: '#0e1726', weight: 1.4, dashArray: '4 4', fillOpacity: 0, opacity: 0.6 }),
         onEachFeature: (f, lyr) => lyr.bindTooltip(`<strong>${f.properties.DistrictName || 'District ' + f.properties.District}</strong>`)
       }).addTo(mapRef.current);
     }
-    mapRef.current.fitBounds(layerRef.current.getBounds(), { padding: [16, 16] });
-    setTimeout(() => mapRef.current && mapRef.current.invalidateSize(), 50);
-  }, [tracts, districts, column, effectiveMode, layer.rawDirection, stats.min, stats.max, appMode, metricAKey, conditionA, metricBKey, conditionB, intersection.thresholdA, intersection.thresholdB, showDistricts]);
+  }, [showDistricts, districts]);
 
   const maxPriority = topList.length ? Math.max(...topList.map(r => r.priority || 0)) : 1;
 
@@ -206,10 +210,11 @@ function Atlas({ tracts, commissionDistricts }) {
             <div className="lt">{title}</div>
             <div className="strip">{atlasRampStops.map((c, i) => <span key={i} style={{ background: c }}></span>)}</div>
             <div className="ticks"><span>{H.fmt(stats.min, unit)}</span><span>{H.fmt(stats.avg, unit)}</span><span>{H.fmt(stats.max, unit)}</span></div>
+            <div className="legend-dir"><span>{higherWorse ? 'Better' : 'Lower'}</span><span>{higherWorse ? 'Worse' : 'Higher'}</span></div>
           </div> : <div className="atlas-legend">
             <div className="lt">Group</div>
             <div className="keys">
-              <span className="k"><span className="sw" style={{ background: atlasIntersect.both }}></span>Both</span>
+              <span className="k"><span className="sw" style={{ background: atlasIntersect.both }}></span>Both conditions</span>
               <span className="k"><span className="sw" style={{ background: atlasIntersect.a }}></span>A only</span>
               <span className="k"><span className="sw" style={{ background: atlasIntersect.b }}></span>B only</span>
               <span className="k"><span className="sw" style={{ background: atlasIntersect.neither }}></span>Neither</span>

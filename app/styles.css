@@ -238,9 +238,15 @@ button, select { font: inherit; }
   font-family: "IBM Plex Mono", monospace; font-size: 10px;
   color: var(--ink-soft); margin-top: 5px;
 }
-.atlas-legend .keys { display: flex; gap: 14px; }
+.atlas-legend .legend-dir {
+  display: flex; justify-content: space-between; width: 240px;
+  font-family: "IBM Plex Mono", monospace; font-size: 9.5px;
+  color: var(--ink-mute); margin-top: 3px; letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.atlas-legend .keys { display: flex; gap: 14px; flex-wrap: wrap; }
 .atlas-legend .keys .k { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-soft); }
-.atlas-legend .keys .sw { width: 12px; height: 12px; }
+.atlas-legend .keys .sw { width: 14px; height: 14px; border-radius: 2px; }
 
 .atlas-readout {
   flex: 1; background: var(--card); border: 1px solid var(--rule);
