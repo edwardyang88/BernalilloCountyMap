@@ -197,6 +197,7 @@ button, select { font: inherit; }
 .atlas-map-wrap { position: relative; min-height: 0; background: var(--card); }
 .atlas-map { position: absolute; inset: 0; }
 .atlas-map .leaflet-container { background: #e1e8ef !important; font-family: "IBM Plex Sans", sans-serif; }
+.atlas-map path.leaflet-interactive { outline: none; }
 .atlas-root .leaflet-tooltip {
   background: var(--card); border: 1px solid var(--rule);
   color: var(--ink); border-radius: 3px; padding: 6px 10px;

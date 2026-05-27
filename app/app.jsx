@@ -69,6 +69,7 @@ function Atlas({ tracts, commissionDistricts }) {
           const a = H.metricValue(f, metricA);
           const b = H.metricValue(f, metricB);
           lyr.bindTooltip(`<strong>${p.tract_label || 'Tract ' + p.NAME}</strong><br>${metricA.label}: ${H.fmt(a, metricA.unit)}<br>${metricB.label}: ${H.fmt(b, metricB.unit)}`);
+          lyr.on('click', () => setSelectedGeoid(g => g === p.GEOID ? null : p.GEOID));
         }
       }).addTo(mapRef.current);
     } else {
@@ -81,6 +82,7 @@ function Atlas({ tracts, commissionDistricts }) {
           const p = f.properties;
           const v = H.displayValue(f, column);
           lyr.bindTooltip(`<strong>${p.tract_label || 'Tract ' + p.NAME}</strong><br>${title}: ${H.fmt(v, unit)}`);
+          lyr.on('click', () => setSelectedGeoid(g => g === p.GEOID ? null : p.GEOID));
         }
       }).addTo(mapRef.current);
     }
