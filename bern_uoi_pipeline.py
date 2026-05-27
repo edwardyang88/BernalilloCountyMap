@@ -394,6 +394,38 @@ def build_bern_uoi(refresh: bool = True) -> gpd.GeoDataFrame:
         COUNTY_FIPS
     )
 
+    # K. Vehicle access: B08201 (Detailed table, household vehicles available)
+    # pct_no_vehicle = households with no vehicle / total households
+    vehicle_vars = [
+        "B08201_001E",  # total households
+        "B08201_002E",  # no vehicle available
+    ]
+    df_vehicle = fetch_acs_json(
+        ACS_YEAR,
+        "acs/acs5",
+        vehicle_vars,
+        STATE_FIPS,
+        COUNTY_FIPS
+    )
+
+    # L. Language isolation: C16002 (Detailed table, household limited English speaking status)
+    # pct_lep = households that are "limited English speaking" / total households
+    # Mirrors CDC SVI methodology.
+    lang_vars = [
+        "C16002_001E",  # total households
+        "C16002_004E",  # Spanish - limited English speaking household
+        "C16002_007E",  # Other Indo-European - limited English speaking household
+        "C16002_010E",  # Asian and Pacific Islander - limited English speaking household
+        "C16002_013E",  # Other - limited English speaking household
+    ]
+    df_lang = fetch_acs_json(
+        ACS_YEAR,
+        "acs/acs5",
+        lang_vars,
+        STATE_FIPS,
+        COUNTY_FIPS
+    )
+
     # ---------- 2. Compute tract-level indicators (tabular) ----------
 
     print("Computing indicators...")
@@ -438,6 +470,18 @@ def build_bern_uoi(refresh: bool = True) -> gpd.GeoDataFrame:
     # Employment: unemployment rate (already a percent)
     df_emp["unemployment_rate"] = df_emp["S2301_C04_001E"]
 
+    # Vehicle access: percent of households with no vehicle
+    df_vehicle["pct_no_vehicle"] = safe_pct(
+        df_vehicle["B08201_002E"], df_vehicle["B08201_001E"]
+    )
+
+    # Language isolation: percent of households that are limited English speaking
+    df_lang["pct_lep"] = safe_pct(
+        df_lang["C16002_004E"] + df_lang["C16002_007E"]
+        + df_lang["C16002_010E"] + df_lang["C16002_013E"],
+        df_lang["C16002_001E"]
+    )
+
     # Merge all indicators on GEOID
     df_indicators = (
         df_broadband[["GEOID", "pct_broadband"]]
@@ -449,6 +493,8 @@ def build_bern_uoi(refresh: bool = True) -> gpd.GeoDataFrame:
         .merge(df_edu[["GEOID", "pct_hs_or_higher"]], on="GEOID", how="left")
         .merge(df_snap[["GEOID", "pct_snap"]], on="GEOID", how="left")
         .merge(df_emp[["GEOID", "unemployment_rate"]], on="GEOID", how="left")
+        .merge(df_vehicle[["GEOID", "pct_no_vehicle"]], on="GEOID", how="left")
+        .merge(df_lang[["GEOID", "pct_lep"]], on="GEOID", how="left")
     )
 
     print("  Indicator table shape:", df_indicators.shape)
@@ -530,6 +576,12 @@ def build_bern_uoi(refresh: bool = True) -> gpd.GeoDataFrame:
     # Employment: lower unemployment rate = higher opportunity
     gdf["norm_unemployment"] = 1 - minmax(gdf["unemployment_rate"])
 
+    # Vehicle access: fewer households without a car = higher opportunity
+    gdf["norm_vehicle_access"] = 1 - minmax(gdf["pct_no_vehicle"])
+
+    # Language isolation: fewer limited-English households = fewer service barriers
+    gdf["norm_language_access"] = 1 - minmax(gdf["pct_lep"])
+
     # Eviction risk: combines rent burden, poverty, SNAP reliance, and unemployment
     # Higher eviction_risk_score = more at risk; higher eviction_resilience_score = more stable
     risk_components = [
@@ -562,6 +614,7 @@ def build_bern_uoi(refresh: bool = True) -> gpd.GeoDataFrame:
         "norm_hs_or_higher",
         "norm_snap",
         "norm_unemployment",
+        "norm_vehicle_access",
     ]
     if gdf["norm_hospital_access"].notna().any():
         uoi_components.append("norm_hospital_access")
@@ -582,6 +635,32 @@ def build_bern_uoi(refresh: bool = True) -> gpd.GeoDataFrame:
     non_geom_cols = [c for c in gdf.columns if c != "geometry"]
     gdf[non_geom_cols].to_csv(csv_path, index=False)
     print(f"Saving CSV to {csv_path} ...")
+
+    # Export GeoJSON for the web app
+    geojson_path = os.path.join("data", "tracts.json")
+    web_cols = [
+        "GEOID", "NAME", "area_label", "tract_label",
+        "uoi_score",
+        "pct_broadband", "norm_broadband",
+        "pct_rent_burdened", "norm_rent_burdened",
+        "pct_uninsured", "norm_uninsured",
+        "hospital_distance_mi", "norm_hospital_access",
+        "pct_poverty", "norm_poverty",
+        "median_hh_income", "norm_income",
+        "pct_disability", "norm_disability",
+        "pct_hs_or_higher", "norm_hs_or_higher",
+        "pct_snap", "norm_snap",
+        "unemployment_rate", "norm_unemployment",
+        "pct_no_vehicle", "norm_vehicle_access",
+        "pct_lep", "norm_language_access",
+        "eviction_risk_score", "eviction_resilience_score",
+        "geometry",
+    ]
+    # Only keep columns that actually exist (handles optional fields gracefully)
+    web_cols = [c for c in web_cols if c in gdf.columns]
+    gdf_web = gdf[web_cols].to_crs("EPSG:4326")
+    gdf_web.to_file(geojson_path, driver="GeoJSON")
+    print(f"Saving GeoJSON to {geojson_path} ...")
 
     print("\nDone")
     print("Columns you’ll likely map first:")

@@ -13,7 +13,9 @@ window.BERN_LAYERS = [
   { key: 'education', label: 'Education', shortLabel: 'Education', scoreCol: 'norm_hs_or_higher', rawCol: 'pct_hs_or_higher', rawLabel: 'Adults with high school or higher', rawUnit: 'percent', rawDirection: 'higher_better', why: 'Educational attainment is connected to employment options, income, and navigation of institutions.', scoreMeaning: 'Higher scores mean more adults have at least a high school credential.' },
   { key: 'snap', label: 'SNAP reliance', shortLabel: 'SNAP', scoreCol: 'norm_snap', rawCol: 'pct_snap', rawLabel: 'Households receiving SNAP', rawUnit: 'percent', rawDirection: 'higher_worse', why: 'SNAP use can point to food insecurity and household income stress.', scoreMeaning: 'Higher scores mean lower SNAP reliance.' },
   { key: 'unemployment', label: 'Unemployment', shortLabel: 'Jobs', scoreCol: 'norm_unemployment', rawCol: 'unemployment_rate', rawLabel: 'Unemployment rate', rawUnit: 'percent', rawDirection: 'higher_worse', why: 'Unemployment is a strong signal of near-term financial instability.', scoreMeaning: 'Higher scores mean lower unemployment.' },
-  { key: 'eviction', label: 'Eviction pressure', shortLabel: 'Eviction', scoreCol: 'eviction_resilience_score', rawCol: 'eviction_risk_score', rawLabel: 'Eviction pressure score', rawUnit: 'score', rawDirection: 'higher_worse', why: 'This proxy combines rent burden, poverty, SNAP reliance, and unemployment to flag instability.', scoreMeaning: 'Higher scores mean stronger resilience against eviction pressure.' }
+  { key: 'eviction', label: 'Eviction pressure', shortLabel: 'Eviction', scoreCol: 'eviction_resilience_score', rawCol: 'eviction_risk_score', rawLabel: 'Eviction pressure score', rawUnit: 'score', rawDirection: 'higher_worse', why: 'This proxy combines rent burden, poverty, SNAP reliance, and unemployment to flag instability.', scoreMeaning: 'Higher scores mean stronger resilience against eviction pressure.' },
+  { key: 'vehicle', label: 'Vehicle access', shortLabel: 'Vehicle', scoreCol: 'norm_vehicle_access', rawCol: 'pct_no_vehicle', rawLabel: 'Households without a vehicle', rawUnit: 'percent', rawDirection: 'higher_worse', why: 'Bernalillo County is car-dependent. Households without a vehicle face compounded barriers to jobs, healthcare, and groceries.', scoreMeaning: 'Higher scores mean fewer households are without a vehicle.' },
+  { key: 'language', label: 'Language access', shortLabel: 'Language', scoreCol: 'norm_language_access', rawCol: 'pct_lep', rawLabel: 'Limited English speaking households', rawUnit: 'percent', rawDirection: 'higher_worse', why: 'Households with limited English proficiency face barriers to navigating services, benefits, legal processes, and healthcare.', scoreMeaning: 'Higher scores mean fewer households face language-based service barriers.' }
 ];
 
 window.BERN_INTERSECTION_METRICS = [
@@ -28,6 +30,8 @@ window.BERN_INTERSECTION_METRICS = [
   { key: 'snap', label: 'SNAP reliance', column: 'pct_snap', unit: 'percent' },
   { key: 'unemployment', label: 'Unemployment', column: 'unemployment_rate', unit: 'percent' },
   { key: 'eviction', label: 'Eviction pressure', column: 'eviction_risk_score', unit: 'score', scale: 100 },
+  { key: 'vehicle', label: 'No-vehicle households', column: 'pct_no_vehicle', unit: 'percent' },
+  { key: 'language', label: 'Limited English households', column: 'pct_lep', unit: 'percent' },
   { key: 'overall', label: 'Overall opportunity score', column: 'uoi_score', unit: 'score', scale: 100 }
 ];
 
