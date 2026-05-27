@@ -228,7 +228,7 @@ function Atlas({ tracts, commissionDistricts }) {
         <div id="map" className="atlas-map"></div>
         {appMode === 'single' ? <div className="atlas-map-key">
           <div className="key-header"><span className="key-metric">{title}</span></div>
-          <div className="key-bar" style={{ background: `linear-gradient(to right, ${(higherWorse ? [...atlasRampStops].reverse() : atlasRampStops).join(', ')})` }}></div>
+          <div className="key-bar" style={{ background: `linear-gradient(to right, ${(higherWorse ? atlasRampStops : [...atlasRampStops].reverse()).join(', ')})` }}></div>
           <div className="key-scale">
             <span>{H.fmt(stats.min, unit)}</span>
             <span>{H.fmt(stats.max, unit)}</span>
