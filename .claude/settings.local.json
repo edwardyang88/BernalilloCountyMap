@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(ls /Users/edwardyang/Desktop/BernCo/dist && ls /Users/edwardyang/Downloads/bernco2/)"
-    ]
-  }
-}
