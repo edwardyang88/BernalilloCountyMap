@@ -13,6 +13,7 @@ function Atlas({ tracts, commissionDistricts }) {
   const layerRef = useRef(null);
   const districtRef = useRef(null);
   const selectedLayerRef = useRef(null);
+  const selectedDistrictRef = useRef(null);
 
   const [appMode, setAppMode] = useState('single');
   const [selectedGeoid, setSelectedGeoid] = useState(null);
@@ -91,10 +92,25 @@ function Atlas({ tracts, commissionDistricts }) {
   useEffect(() => {
     if (!mapRef.current) return;
     if (districtRef.current) { districtRef.current.remove(); districtRef.current = null; }
+    selectedDistrictRef.current = null;
     if (showDistricts && districts) {
       districtRef.current = L.geoJSON(districts, {
         style: () => ({ color: '#0e1726', weight: 1.4, dashArray: '4 4', fillOpacity: 0, opacity: 0.6 }),
-        onEachFeature: (f, lyr) => lyr.bindTooltip(`<strong>${f.properties.DistrictName || 'District ' + f.properties.District}</strong>`)
+        onEachFeature: (f, lyr) => {
+          lyr.bindTooltip(`<strong>${f.properties.DistrictName || 'District ' + f.properties.District}</strong>`);
+          lyr.on('click', () => {
+            if (selectedDistrictRef.current && selectedDistrictRef.current !== lyr) {
+              selectedDistrictRef.current.setStyle({ fillOpacity: 0, dashArray: '4 4', weight: 1.4, opacity: 0.6 });
+            }
+            if (selectedDistrictRef.current === lyr) {
+              lyr.setStyle({ fillOpacity: 0, dashArray: '4 4', weight: 1.4, opacity: 0.6 });
+              selectedDistrictRef.current = null;
+            } else {
+              lyr.setStyle({ fillColor: '#2c5d8c', fillOpacity: 0.15, dashArray: null, weight: 2.5, opacity: 0.9 });
+              selectedDistrictRef.current = lyr;
+            }
+          });
+        }
       }).addTo(mapRef.current);
     }
   }, [showDistricts, districts]);
