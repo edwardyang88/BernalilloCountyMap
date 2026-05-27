@@ -636,10 +636,29 @@ def build_bern_uoi(refresh: bool = True) -> gpd.GeoDataFrame:
     gdf[non_geom_cols].to_csv(csv_path, index=False)
     print(f"Saving CSV to {csv_path} ...")
 
+    # Preserve custom area_label / tract_label from existing GeoJSON (hand-curated names)
+    existing_geojson = os.path.join("data", "tracts.json")
+    if os.path.exists(existing_geojson):
+        import json as _json
+        with open(existing_geojson) as _f:
+            _old = _json.load(_f)
+        _label_map = {
+            feat["properties"]["GEOID"]: {
+                "area_label": feat["properties"].get("area_label"),
+                "tract_label": feat["properties"].get("tract_label"),
+            }
+            for feat in _old["features"]
+            if feat["properties"].get("area_label") is not None
+        }
+        if _label_map:
+            gdf["area_label"] = gdf["GEOID"].map(lambda g: _label_map.get(g, {}).get("area_label"))
+            gdf["tract_label"] = gdf["GEOID"].map(lambda g: _label_map.get(g, {}).get("tract_label"))
+            print(f"  Preserved area_label / tract_label for {len(_label_map)} tracts")
+
     # Export GeoJSON for the web app
     geojson_path = os.path.join("data", "tracts.json")
     web_cols = [
-        "GEOID", "NAME", "area_label", "tract_label",
+        "GEOID", "NAME", "area_label", "tract_label", "NAMELSAD",
         "uoi_score",
         "pct_broadband", "norm_broadband",
         "pct_rent_burdened", "norm_rent_burdened",
