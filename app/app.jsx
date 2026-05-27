@@ -227,17 +227,23 @@ function Atlas({ tracts, commissionDistricts }) {
       <div className="atlas-map-wrap">
         <div id="map" className="atlas-map"></div>
         {appMode === 'single' ? <div className="atlas-map-key">
-          <div className="lt">{title}</div>
-          <div className="strip">{atlasRampStops.map((c, i) => <span key={i} style={{ background: c }}></span>)}</div>
-          <div className="ticks"><span>{H.fmt(stats.min, unit)}</span><span>{H.fmt(stats.avg, unit)}</span><span>{H.fmt(stats.max, unit)}</span></div>
-          <div className="legend-dir"><span>{higherWorse ? 'Better' : 'Lower'}</span><span>{higherWorse ? 'Worse' : 'Higher'}</span></div>
+          <div className="key-header"><span className="key-metric">{title}</span></div>
+          <div className="key-bar" style={{ background: `linear-gradient(to right, ${(higherWorse ? [...atlasRampStops].reverse() : atlasRampStops).join(', ')})` }}></div>
+          <div className="key-scale">
+            <span>{H.fmt(stats.min, unit)}</span>
+            <span>{H.fmt(stats.max, unit)}</span>
+          </div>
+          <div className="key-caption">
+            <span>{higherWorse ? 'better' : effectiveMode === 'score' ? 'low' : 'lower'}</span>
+            <span>{higherWorse ? 'worse' : effectiveMode === 'score' ? 'high' : 'higher'}</span>
+          </div>
         </div> : <div className="atlas-map-key">
-          <div className="lt">Legend</div>
-          <div className="keys">
-            <span className="k"><span className="sw" style={{ background: atlasIntersect.both }}></span>Both conditions</span>
-            <span className="k"><span className="sw" style={{ background: atlasIntersect.a }}></span>A only</span>
-            <span className="k"><span className="sw" style={{ background: atlasIntersect.b }}></span>B only</span>
-            <span className="k"><span className="sw" style={{ background: atlasIntersect.neither }}></span>Neither</span>
+          <div className="key-header"><span className="key-metric">conditions</span></div>
+          <div className="key-items">
+            <div className="key-item"><span className="key-dot" style={{ background: atlasIntersect.both }}></span><span>Both A + B</span></div>
+            <div className="key-item"><span className="key-dot" style={{ background: atlasIntersect.a }}></span><span>A only</span></div>
+            <div className="key-item"><span className="key-dot" style={{ background: atlasIntersect.b }}></span><span>B only</span></div>
+            <div className="key-item"><span className="key-dot key-dot-muted" style={{ background: atlasIntersect.neither }}></span><span>Neither</span></div>
           </div>
         </div>}
         <div className="atlas-mapfooter">
