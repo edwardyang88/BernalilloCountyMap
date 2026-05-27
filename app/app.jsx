@@ -12,8 +12,10 @@ function Atlas({ tracts, commissionDistricts }) {
   const mapRef = useRef(null);
   const layerRef = useRef(null);
   const districtRef = useRef(null);
+  const selectedLayerRef = useRef(null);
 
   const [appMode, setAppMode] = useState('single');
+  const [selectedGeoid, setSelectedGeoid] = useState(null);
   const [layerKey, setLayerKey] = useState('overall');
   const [mode, setMode] = useState('score');
   const [showDistricts, setShowDistricts] = useState(true);
@@ -48,6 +50,8 @@ function Atlas({ tracts, commissionDistricts }) {
       }).addTo(mapRef.current);
     }
     if (layerRef.current) layerRef.current.remove();
+    selectedLayerRef.current = null;
+    setSelectedGeoid(null);
 
     if (appMode === 'intersection') {
       layerRef.current = L.geoJSON(tracts, {
@@ -94,6 +98,23 @@ function Atlas({ tracts, commissionDistricts }) {
       }).addTo(mapRef.current);
     }
   }, [showDistricts, districts]);
+
+  useEffect(() => {
+    if (!layerRef.current) return;
+    if (selectedLayerRef.current) {
+      layerRef.current.resetStyle(selectedLayerRef.current);
+      selectedLayerRef.current = null;
+    }
+    if (!selectedGeoid) return;
+    layerRef.current.eachLayer(lyr => {
+      if (lyr.feature && lyr.feature.properties.GEOID === selectedGeoid) {
+        selectedLayerRef.current = lyr;
+        lyr.setStyle({ color: '#f5a623', weight: 3, fillOpacity: 0.95 });
+        lyr.bringToFront();
+        mapRef.current.fitBounds(lyr.getBounds(), { padding: [80, 80], maxZoom: 14 });
+      }
+    });
+  }, [selectedGeoid]);
 
   const maxPriority = topList.length ? Math.max(...topList.map(r => r.priority || 0)) : 1;
 
@@ -247,9 +268,11 @@ function Atlas({ tracts, commissionDistricts }) {
         <div className="atlas-rlist">
           {topList.map((row, i) => {
             const f = row.feature;
+            const isSelected = selectedGeoid === f.properties.GEOID;
+            const handleClick = () => setSelectedGeoid(isSelected ? null : f.properties.GEOID);
             if (appMode === 'intersection') {
               const aPct = row.priority || 0;
-              return <div className="row" key={f.properties.GEOID}>
+              return <div className={`row${isSelected ? ' selected' : ''}`} key={f.properties.GEOID} onClick={handleClick}>
                 <div className="rank">{String(i + 1).padStart(2, '0')}</div>
                 <div>
                   <div className="area">{f.properties.area_label}</div>
@@ -262,7 +285,7 @@ function Atlas({ tracts, commissionDistricts }) {
               </div>;
             }
             const pct = stats.max === stats.min ? 0.5 : (row.value - stats.min) / (stats.max - stats.min);
-            return <div className="row" key={f.properties.GEOID}>
+            return <div className={`row${isSelected ? ' selected' : ''}`} key={f.properties.GEOID} onClick={handleClick}>
               <div className="rank">{String(i + 1).padStart(2, '0')}</div>
               <div>
                 <div className="area">{f.properties.area_label}</div>
