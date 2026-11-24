@@ -151,7 +151,11 @@ function Atlas({ tracts, commissionDistricts }) {
         <span className="cur">Opportunity Index</span>
       </div>
       <div className="spacer"></div>
-      <a className="dl" href="outputs/bern_uoi_tracts.csv" download="bernalillo_opportunity_index.csv" title="All 176 tracts with every indicator and score">Download CSV</a>
+      <a className="dl" href="outputs/bern_uoi_tracts.csv" download="bernalillo_opportunity_index.csv" title="All 176 tracts with every indicator and score">
+        <svg className="dl-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v7.2M4.8 6.8 8 10l3.2-3.2M3 12.5h10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        <span>Download data</span>
+        <span className="dl-tag">CSV</span>
+      </a>
       <div className="modes">
         <button className={appMode === 'single' ? 'active' : ''} onClick={() => setAppMode('single')}>Indicator</button>
         <button className={appMode === 'intersection' ? 'active' : ''} onClick={() => setAppMode('intersection')}>Intersection</button>
