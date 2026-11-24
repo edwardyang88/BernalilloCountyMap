@@ -150,7 +150,7 @@ function Atlas({ tracts, commissionDistricts }) {
         <span className="cur">Opportunity Index</span>
       </div>
       <div className="spacer"></div>
-      <span className="chip"><span className="dot"></span>Data current</span>
+      <a className="dl" href="outputs/bern_uoi_tracts.csv" download="bernalillo_opportunity_index.csv" title="All 176 tracts with every indicator and score">Download CSV</a>
       <div className="modes">
         <button className={appMode === 'single' ? 'active' : ''} onClick={() => setAppMode('single')}>Indicator</button>
         <button className={appMode === 'intersection' ? 'active' : ''} onClick={() => setAppMode('intersection')}>Intersection</button>

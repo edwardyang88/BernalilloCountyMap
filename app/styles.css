@@ -67,17 +67,12 @@ button, select { font: inherit; }
 .atlas-top .crumbs .sep { color: var(--ink-mute); }
 .atlas-top .crumbs .cur { color: var(--ink); font-weight: 500; }
 .atlas-top .spacer { flex: 1; }
-.atlas-top .chip {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 4px 10px; border: 1px solid var(--rule); border-radius: 999px;
-  font-family: "IBM Plex Mono", monospace; font-size: 10.5px;
-  color: var(--ink-soft); letter-spacing: 0.04em;
+.atlas-top .dl {
+  padding: 6px 12px; border: 1px solid var(--rule); border-radius: 6px;
+  font-size: 12px; font-weight: 500; color: var(--ink-soft);
+  text-decoration: none; background: var(--card);
 }
-.atlas-top .chip .dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: #4ea868;
-  box-shadow: 0 0 0 3px rgba(78,168,104,0.18);
-}
+.atlas-top .dl:hover { color: var(--ink); border-color: var(--ink-mute); }
 .atlas-top .modes {
   display: flex; background: var(--paper); border-radius: 6px; padding: 2px;
   border: 1px solid var(--rule);
