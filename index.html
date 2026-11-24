@@ -34,7 +34,7 @@
       const [tracts, commissionDistricts, summary] = await Promise.all([
         get('data/tracts.json'),
         get('data/commission_districts.json'),
-        get('data/summary.json').catch(() => null)
+        get('data/summary.json').catch(() => new Promise(r => setTimeout(r, 1500)).then(() => get('data/summary.json')).catch(() => null))
       ]);
       const root = ReactDOM.createRoot(document.getElementById('root'));
       root.render(<window.BernAppMain tracts={tracts} commissionDistricts={commissionDistricts} summary={summary} />);

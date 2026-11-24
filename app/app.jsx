@@ -94,7 +94,7 @@ function TractProfile({ feature, tracts, summary, onClose }) {
       {cluster && <p><span className="swatch" style={{ background: cluster.color }}></span>{cluster.sentence}{p.lisa_p !== null && p.lisa_cluster !== 'none' ? ` (p = ${p.lisa_p.toFixed(3)})` : ''}</p>}
       <p>
         {p.eviction_filing_rate !== null
-          ? <><strong>{p.eviction_filings_12mo}</strong> eviction filings in the 12 months to {ev ? new Date(ev.end + 'T12:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'the latest data'}, or <strong>{p.eviction_filing_rate.toFixed(1)}</strong> per 100 renter households (county: {ev ? ev.county_rate_per_100_renters.toFixed(1) : '–'}).{p.eviction_vs_baseline ? (p.eviction_vs_baseline >= 1 ? ` Filings are running at ${p.eviction_vs_baseline.toFixed(1)}× the tract’s pre-pandemic level.` : ` Filings are running at ${Math.round(p.eviction_vs_baseline * 100)}% of the tract’s pre-pandemic level.`) : ''}</>
+          ? <><strong>{p.eviction_filings_12mo}</strong> eviction filings in the 12 months to {ev ? new Date(ev.end + 'T12:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'the latest data'}, or <strong>{p.eviction_filing_rate.toFixed(1)}</strong> per 100 renter households{ev ? ` (county: ${ev.county_rate_per_100_renters.toFixed(1)})` : ''}.{p.eviction_vs_baseline ? (p.eviction_vs_baseline >= 1 ? ` Filings are running at ${p.eviction_vs_baseline.toFixed(1)}× the tract’s pre-pandemic level.` : ` Filings are running at ${Math.round(p.eviction_vs_baseline * 100)}% of the tract’s pre-pandemic level.`) : ''}</>
           : <>Too few renter households ({p.renter_households ?? 0}) for a reliable eviction filing rate.</>}
       </p>
       {gaps.length > 0 && <p>In the bottom quarter of the county for {gaps.length === 1 ? gaps[0] : gaps.slice(0, -1).join(', ') + ' and ' + gaps[gaps.length - 1]}.</p>}
@@ -163,13 +163,15 @@ function Methods({ summary, onClose }) {
       <p>Each measure is rescaled from 0 (worst tract in the county) to 100 (best), flipped where a higher number is worse, then averaged with equal weights. Limited-English households and the estimated eviction risk are mapped for reference but left out of the score.</p>
 
       <h3>Clusters</h3>
-      <p>Tracts that share a border or a corner count as neighbors. Local Moran’s I compares each tract’s score with its neighbors’ average and tests the result against 999 random reshuffles of the map, so a cluster is only shown when it is unlikely to be chance (p &lt; 0.05). Across the whole county, Moran’s I is {s ? s.clusters.morans_i.toFixed(2) : '–'}.</p>
+      <p>Tracts that share a border or a corner count as neighbors. Local Moran’s I compares each tract’s score with its neighbors’ average and tests the result against 999 random reshuffles of the map, so a cluster is only shown when it is unlikely to be chance (p &lt; 0.05).{s ? ` Across the whole county, Moran’s I is ${s.clusters.morans_i.toFixed(2)}.` : ''}</p>
 
       <h3>Eviction filings</h3>
       <p>Weekly filing counts by tract come from the Eviction Lab’s Eviction Tracking System for Albuquerque. The map sums the most recent 52 complete weeks{s ? ` (${fmtDate(s.eviction.start)} to ${fmtDate(s.eviction.end)})` : ''} and divides by renter households from the 2022 ACS. Tracts with fewer than {s ? s.eviction.min_renters_for_rate : 50} renter households are left blank because a handful of cases would swing the rate. {s ? `${s.eviction.sealed_or_unlocated_filings_in_full_series.toLocaleString()} filings in the full series were sealed or could not be placed in a tract.` : ''}</p>
 
-      <h3>Checking the score</h3>
-      <p>Filings are not an input, so they are a fair test. Across tracts, the rank correlation between the score and the filing rate is {s ? s.validation.spearman_index_vs_filing_rate.toFixed(2) : '–'}: a moderate link in the expected direction. The narrower eviction-risk estimate, built from four of the same inputs, does about as well ({s ? s.validation.spearman_acs_proxy_vs_filing_rate.toFixed(2) : '–'}), which suggests the score’s extra measures describe opportunity broadly rather than eviction risk specifically.</p>
+      {s && <>
+        <h3>Checking the score</h3>
+        <p>Filings are not an input, so they are a fair test. Across tracts, the rank correlation between the score and the filing rate is {s.validation.spearman_index_vs_filing_rate.toFixed(2)}: a moderate link in the expected direction. The narrower eviction-risk estimate, built from four of the same inputs, does about as well ({s.validation.spearman_acs_proxy_vs_filing_rate.toFixed(2)}), which suggests the score’s extra measures describe opportunity broadly rather than eviction risk specifically.</p>
+      </>}
 
       <h3>Limits</h3>
       <ul>
