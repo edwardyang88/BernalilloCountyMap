@@ -302,6 +302,7 @@ button, select { font: inherit; }
 }
 .atlas-rh .meta { font-size: 11.5px; color: var(--ink-soft); margin-top: 4px; }
 .atlas-rh .meta b { color: var(--ink); font-weight: 500; }
+.atlas-rh .atlas-sort { margin-top: 10px; margin-bottom: 0; }
 
 .atlas-rlist { flex: 1; overflow-y: auto; }
 .atlas-rlist .row {

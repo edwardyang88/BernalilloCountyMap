@@ -66,14 +66,13 @@ window.BernHelpers = (function () {
 
   // Build a sequential color ramp from N anchor stops.
   // stops: array of hex strings, sorted low→high intensity.
-  // higherWorse: when true, high values use the saturated end; otherwise inverted.
+  // Higher values always get the darker (more saturated) end of the ramp.
   function makeRamp(stops) {
     function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
     const rgb = stops.map(hexToRgb);
-    return function (value, min, max, higherWorse, missing = '#d1d5db') {
+    return function (value, min, max, missing = '#d1d5db') {
       if (value === null || !Number.isFinite(value)) return missing;
       let t = max === min ? 0.5 : Math.max(0, Math.min(1, (value - min) / (max - min)));
-      if (!higherWorse) t = 1 - t;
       const idx = t * (rgb.length - 1);
       const i = Math.floor(idx);
       const f = idx - i;
@@ -104,10 +103,10 @@ window.BernHelpers = (function () {
     return { thresholdA, thresholdB, validCount, matches: ranked.filter(r => r.matchA && r.matchB).sort((a, b) => b.priority - a.priority), ranked };
   }
 
-  function rankedSingleLayer(tracts, column, direction, mode) {
+  // order: 'desc' = highest value first, 'asc' = lowest value first
+  function rankedSingleLayer(tracts, column, order = 'desc') {
     const rows = tracts.features.map(f => ({ feature: f, value: displayValue(f, column) })).filter(r => r.value !== null);
-    const lowestFirst = mode === 'score' ? true : direction !== 'higher_worse';
-    return [...rows].sort((a, b) => lowestFirst ? a.value - b.value : b.value - a.value);
+    return [...rows].sort((a, b) => order === 'asc' ? a.value - b.value : b.value - a.value);
   }
 
   function singleLayerStats(rows) {

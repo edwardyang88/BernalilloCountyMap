@@ -24,6 +24,7 @@ function Atlas({ tracts, commissionDistricts }) {
   const [conditionA, setConditionA] = useState('top');
   const [metricBKey, setMetricBKey] = useState('uninsured');
   const [conditionB, setConditionB] = useState('top');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   const layer = LAYERS.find(l => l.key === layerKey) || LAYERS[0];
   const effectiveMode = layer.key === 'overall' ? 'score' : mode;
@@ -40,8 +41,8 @@ function Atlas({ tracts, commissionDistricts }) {
 
   const topList = useMemo(() => {
     if (appMode === 'intersection') return intersection.matches.slice(0, 14);
-    return H.rankedSingleLayer(tracts, column, layer.rawDirection, effectiveMode).slice(0, 14);
-  }, [appMode, intersection, tracts, column, layer.rawDirection, effectiveMode]);
+    return H.rankedSingleLayer(tracts, column, sortOrder);
+  }, [appMode, intersection, tracts, column, sortOrder]);
 
   useEffect(() => {
     if (!mapRef.current) {
@@ -74,7 +75,7 @@ function Atlas({ tracts, commissionDistricts }) {
       layerRef.current = L.geoJSON(tracts, {
         style: (f) => {
           const v = H.displayValue(f, column);
-          return { color: '#1c2a3e', weight: 0.3, fillColor: atlasRamp(v, stats.min, stats.max, higherWorse, '#e6ecf2'), fillOpacity: v === null ? 0.35 : 0.86 };
+          return { color: '#1c2a3e', weight: 0.3, fillColor: atlasRamp(v, stats.min, stats.max, '#e6ecf2'), fillOpacity: v === null ? 0.35 : 0.86 };
         },
         onEachFeature: (f, lyr) => {
           const p = f.properties;
@@ -244,7 +245,7 @@ function Atlas({ tracts, commissionDistricts }) {
         <div id="map" className="atlas-map"></div>
         {appMode === 'single' ? <div className="atlas-map-key">
           <div className="key-header"><span className="key-metric">{title}</span></div>
-          <div className="key-bar" style={{ background: `linear-gradient(to right, ${(higherWorse ? atlasRampStops : [...atlasRampStops].reverse()).join(', ')})` }}></div>
+          <div className="key-bar" style={{ background: `linear-gradient(to right, ${atlasRampStops.join(', ')})` }}></div>
           <div className="key-scale">
             <span>{H.fmt(stats.min, unit)}</span>
             <span>{H.fmt(stats.max, unit)}</span>
@@ -285,7 +286,13 @@ function Atlas({ tracts, commissionDistricts }) {
         <div className="atlas-rh">
           <div className="rk">{appMode === 'intersection' ? 'Matched tracts · priority order' : 'Ranked tracts'}</div>
           <h2>{appMode === 'intersection' ? `${intersection.matches.length} tracts meet both conditions` : `Tracts ranked by ${layer.shortLabel.toLowerCase()}`}</h2>
-          <div className="meta"><b>{topList.length}</b> shown · sorted by {appMode === 'intersection' ? 'combined percentile' : 'value'}</div>
+          <div className="meta"><b>{topList.length}</b> shown · sorted by {appMode === 'intersection' ? 'combined percentile' : sortOrder === 'desc' ? 'value, highest first' : 'value, lowest first'}</div>
+          {appMode === 'single' && <div className="atlas-field atlas-sort">
+            <div className="seg">
+              <button className={sortOrder === 'desc' ? 'active' : ''} onClick={() => setSortOrder('desc')}>Highest first</button>
+              <button className={sortOrder === 'asc' ? 'active' : ''} onClick={() => setSortOrder('asc')}>Lowest first</button>
+            </div>
+          </div>}
         </div>
         <div className="atlas-rlist">
           {topList.map((row, i) => {
