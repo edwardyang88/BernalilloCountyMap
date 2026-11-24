@@ -1,11 +1,12 @@
 {
   "generated": "2026-11-24",
-  "tract_count": 176,
+  "tract_count": 172,
+  "tract_count_all": 176,
   "acs_vintage": "2018-2022 ACS 5-year",
   "score": {
     "min": 3.5,
-    "median": 71.1,
-    "max": 93.1
+    "median": 69.1,
+    "max": 93.6
   },
   "eviction": {
     "start": "2025-05-11",
@@ -14,44 +15,120 @@
     "sealed_or_unlocated_filings_in_full_series": 527,
     "county_filings_12mo": 7653,
     "county_baseline_12mo": 7257.133,
-    "county_rate_per_100_renters": 7.43,
+    "county_rate_per_100_renters": 7.52,
     "county_vs_baseline": 1.05,
-    "tracts_with_rate": 169,
+    "tracts_with_rate": 168,
     "min_renters_for_rate": 50
   },
   "validation": {
-    "spearman_index_vs_filing_rate": -0.383,
-    "spearman_acs_proxy_vs_filing_rate": 0.416,
-    "bottom_quartile_rate": 9.76,
+    "spearman_index_vs_filing_rate": -0.387,
+    "spearman_acs_proxy_vs_filing_rate": 0.425,
+    "bottom_quartile_rate": 10.2,
     "top_quartile_rate": 5.05,
-    "bottom_vs_top_ratio": 1.9,
-    "bottom_quartile_share_of_filings": 0.451
+    "bottom_vs_top_ratio": 2.0,
+    "bottom_quartile_share_of_filings": 0.449,
+    "spearman_score_vs_income": 0.929,
+    "spearman_income_vs_filing_rate": -0.409,
+    "income_bottom_vs_top_ratio": 2.0,
+    "r2_ranks_income_only": 0.167,
+    "r2_ranks_income_plus_score": 0.168
   },
+  "expected_evictions": {
+    "model": "quasi-Poisson: filings ~ log(median household income) + % cost-burdened households, offset log(renter households)",
+    "tracts_modeled": 168,
+    "coef_log_income": -0.426,
+    "coef_cost_burden_per_point": 0.0077,
+    "dispersion": 21.7,
+    "pseudo_r2": 0.137,
+    "pseudo_r2_income_only": 0.132,
+    "z_threshold": 2.0,
+    "far_above_count": 8,
+    "far_below_count": 0,
+    "far_above_filings": 1314,
+    "far_above_expected": 576.0,
+    "far_above_share_of_renters": 0.065,
+    "far_above_share_of_filings": 0.172,
+    "far_above_top": [
+      {
+        "area": "South San Pedro",
+        "tract": "9.06",
+        "filings": 447,
+        "expected": 264.0
+      },
+      {
+        "area": "Cibola Loop",
+        "tract": "47.63",
+        "filings": 205,
+        "expected": 63.0
+      },
+      {
+        "area": "Hodgin",
+        "tract": "34",
+        "filings": 264,
+        "expected": 133.0
+      },
+      {
+        "area": "Supper Rock",
+        "tract": "7.12",
+        "filings": 165,
+        "expected": 45.0
+      },
+      {
+        "area": "North Valley / Alameda area",
+        "tract": "47.53",
+        "filings": 101,
+        "expected": 40.0
+      }
+    ],
+    "far_below_top": []
+  },
+  "special_use_tracts": [
+    {
+      "geoid": "35001980000",
+      "tract": "9800",
+      "label": "Kirtland Air Force Base"
+    },
+    {
+      "geoid": "35001980300",
+      "tract": "9803",
+      "label": "Special-use area near Fair West"
+    },
+    {
+      "geoid": "35001980600",
+      "tract": "9806",
+      "label": "Special-use area near Taylor Ranch"
+    },
+    {
+      "geoid": "35001980500",
+      "tract": "9805",
+      "label": "Special-use area near West Mesa / To'hajiilee area"
+    }
+  ],
   "clusters": {
-    "morans_i": 0.465,
+    "morans_i": 0.495,
     "morans_p": 0.001,
     "permutations": 999,
     "alpha": 0.05,
     "counts": {
-      "none": 127,
+      "none": 118,
       "high_high": 30,
-      "low_low": 16,
+      "low_low": 20,
       "low_high": 2,
-      "high_low": 1
+      "high_low": 2
     },
     "low_low_top_areas": [
-      "West Mesa / To'hajiilee area",
+      "Trumbull Village",
       "La Mesa Community Improvement",
       "South Los Altos",
       "Southwest Mesa area",
-      "Trumbull Village"
+      "Vecinos Del Bosque"
     ]
   },
   "districts": [
     {
       "district": 1,
-      "tracts": 37,
-      "mean_score": 68.2,
+      "tracts": 36,
+      "mean_score": 66.4,
       "bottom_quartile_tracts": 9,
       "low_low_cluster_tracts": 3,
       "filings_12mo": 1249,
@@ -59,26 +136,26 @@
     },
     {
       "district": 2,
-      "tracts": 32,
-      "mean_score": 62.5,
-      "bottom_quartile_tracts": 15,
-      "low_low_cluster_tracts": 6,
-      "filings_12mo": 721,
-      "filing_rate": 5.51
+      "tracts": 30,
+      "mean_score": 60.0,
+      "bottom_quartile_tracts": 14,
+      "low_low_cluster_tracts": 8,
+      "filings_12mo": 717,
+      "filing_rate": 6.09
     },
     {
       "district": 3,
-      "tracts": 37,
-      "mean_score": 63.5,
+      "tracts": 36,
+      "mean_score": 60.3,
       "bottom_quartile_tracts": 17,
-      "low_low_cluster_tracts": 7,
-      "filings_12mo": 3093,
-      "filing_rate": 9.33
+      "low_low_cluster_tracts": 9,
+      "filings_12mo": 3086,
+      "filing_rate": 9.31
     },
     {
       "district": 4,
       "tracts": 33,
-      "mean_score": 78.7,
+      "mean_score": 77.6,
       "bottom_quartile_tracts": 0,
       "low_low_cluster_tracts": 0,
       "filings_12mo": 1216,
@@ -87,7 +164,7 @@
     {
       "district": 5,
       "tracts": 37,
-      "mean_score": 73.2,
+      "mean_score": 71.5,
       "bottom_quartile_tracts": 3,
       "low_low_cluster_tracts": 0,
       "filings_12mo": 1374,

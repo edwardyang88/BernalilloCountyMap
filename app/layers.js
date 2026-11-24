@@ -8,6 +8,9 @@ window.BERN_LAYERS = [
   { key: 'filings', label: 'Eviction filings (measured)', shortLabel: 'Eviction filings', scoreCol: 'eviction_filing_rate', rawCol: 'eviction_filing_rate', rawLabel: 'Eviction filings per 100 renter households, last 12 months', rawUnit: 'per100', rawDirection: 'higher_worse', single: true,
     why: 'Court filings recorded by the Eviction Lab, counted for the most recent 52 complete weeks and divided by renter households. This is an outcome, not an estimate, and it is not part of the score.',
     scoreMeaning: 'Higher means more eviction cases were filed relative to the number of renters. Tracts with fewer than 50 renter households are left blank.' },
+  { key: 'excess', label: 'Evictions vs. expected', shortLabel: 'Evictions vs. expected', scoreCol: 'eviction_excess_ratio', rawCol: 'eviction_excess_ratio', rawLabel: 'Eviction filings compared with what income and housing costs predict', rawUnit: 'ratio', rawDirection: 'higher_worse', single: true, diverging: true,
+    why: 'For each tract, a model predicts how many eviction filings to expect from its median income and its share of households with high housing costs, given how many renters live there. This layer compares actual filings with that prediction.',
+    scoreMeaning: 'Rose tracts filed more cases than expected, teal fewer. Outlined tracts are far above what income and housing costs explain, which points to something local: a particular landlord, a large complex, or rents rising faster than wages.' },
   { key: 'clusters', label: 'Clusters of high and low scores', shortLabel: 'Clusters', scoreCol: 'uoi_score', rawCol: 'uoi_score', rawUnit: 'score', rawDirection: 'higher_better', single: true, categorical: true,
     why: 'Local Moran’s I tests whether a tract and its neighbors score unusually alike. It separates real geographic concentrations from a single tract that happens to score low.',
     scoreMeaning: 'Shaded tracts are statistically significant at p < 0.05 after 999 random reshuffles of the map.' },
@@ -39,6 +42,7 @@ window.BERN_CLUSTERS = {
 
 window.BERN_INTERSECTION_METRICS = [
   { key: 'filings', label: 'Eviction filing rate', column: 'eviction_filing_rate', unit: 'per100' },
+  { key: 'excess', label: 'Evictions vs. expected', column: 'eviction_excess_ratio', unit: 'ratio' },
   { key: 'income', label: 'Household income', column: 'median_hh_income', unit: 'currency' },
   { key: 'poverty', label: 'Poverty', column: 'pct_poverty', unit: 'percent' },
   { key: 'housing', label: 'Housing cost burden', column: 'pct_rent_burdened', unit: 'percent' },
@@ -57,13 +61,15 @@ window.BERN_INTERSECTION_METRICS = [
 window.BernHelpers = (function () {
   function asNumber(v) { if (v === null || v === undefined || v === '') return null; const n = Number(v); return Number.isFinite(n) ? n : null; }
   function isScoreColumn(col) { return col && (col.startsWith('norm_') || col === 'uoi_score' || col === 'eviction_risk_score' || col === 'eviction_resilience_score'); }
-  function displayValue(feature, col) { const raw = asNumber(feature.properties[col]); if (raw === null) return null; return isScoreColumn(col) ? raw * 100 : raw; }
+  // Special-use tracts (bases, parks) have few residents and are left out of every comparison.
+  function displayValue(feature, col) { if (feature.properties.special_use) return null; const raw = asNumber(feature.properties[col]); if (raw === null) return null; return isScoreColumn(col) ? raw * 100 : raw; }
   function fmt(v, unit) {
     if (v === null || v === undefined || Number.isNaN(v)) return '–';
     if (unit === 'currency') return '$' + Math.round(v).toLocaleString();
     if (unit === 'percent') return v.toFixed(1) + '%';
     if (unit === 'miles') return v.toFixed(1) + ' mi';
     if (unit === 'per100') return v.toFixed(1);
+    if (unit === 'ratio') return v.toFixed(1) + '×';
     return v.toFixed(1);
   }
   function fmtLong(v, unit) {
@@ -72,7 +78,7 @@ window.BernHelpers = (function () {
   }
   function ordinal(n) { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
   function metricByKey(key) { return window.BERN_INTERSECTION_METRICS.find(m => m.key === key) || window.BERN_INTERSECTION_METRICS[0]; }
-  function metricValue(feature, metric) { const v = asNumber(feature.properties[metric.column]); if (v === null) return null; return metric.scale ? v * metric.scale : v; }
+  function metricValue(feature, metric) { if (feature.properties.special_use) return null; const v = asNumber(feature.properties[metric.column]); if (v === null) return null; return metric.scale ? v * metric.scale : v; }
   function quantile(values, q) {
     const clean = values.filter(v => Number.isFinite(v)).sort((a, b) => a - b);
     if (!clean.length) return null;

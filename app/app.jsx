@@ -15,6 +15,13 @@ const RAMP = ['#f4f2f7', '#ddd8ea', '#bfb5da', '#9a8dc4', '#7465aa', '#52458f', 
 const ramp = H.makeRamp(RAMP);
 const ROSE = '#d6455f';
 const OVERLAP = { both: '#322872', a: '#9a8dc4', b: '#e29a6b', neither: '#eceaf0' };
+// Evictions vs. expected: teal = fewer than expected, rose = more. Scale is log2(actual / expected).
+const DIVERGE = ['#2f7f84', '#7fb3b2', '#cfe1df', '#f3f1f4', '#f2c6cd', '#e07c8f', '#c8405a'];
+const diverge = H.makeRamp(DIVERGE);
+const DIVERGE_MAX = 1.6; // about 3x either way
+const divergeT = r => (r === null || r <= 0) ? null : 0.5 + Math.max(-1, Math.min(1, Math.log2(r) / DIVERGE_MAX)) / 2;
+const SPECIAL = '#d6d4db';
+const isSpecial = f => !!f.properties.special_use;
 const MISSING = '#c9c7cf';
 const fmtDate = iso => new Date(iso + 'T12:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
@@ -61,6 +68,16 @@ function StripPlot({ values, value, median, higherWorse }) {
 
 function TractProfile({ feature, tracts, summary, onClose }) {
   const p = feature.properties;
+  if (p.special_use) return <section className="profile" aria-label={`Profile of ${p.area_label}`}>
+    <button className="back" type="button" onClick={onClose}>Back to overview</button>
+    <h2>{p.area_label}</h2>
+    <p className="profile-sub">Census tract {p.NAME}{p.commission_district ? `, County Commission District ${p.commission_district}` : ''}</p>
+    <div className="profile-facts">
+      <p>This is a special-use census tract. The Census Bureau sets these aside for military bases, parks, open space and similar land with few or no permanent residents.</p>
+      <p>Its numbers describe base housing or a handful of households, not a neighborhood, so it is left out of the score, the rankings, the clusters and every county statistic on this site.</p>
+    </div>
+  </section>;
+  const ranked = tracts.features.filter(f => f.properties.uoi_rank).length;
   const score = H.displayValue(feature, 'uoi_score');
   const cluster = CLUSTERS[p.lisa_cluster] || null;
   const ev = summary && summary.eviction;
@@ -86,7 +103,7 @@ function TractProfile({ feature, tracts, summary, onClose }) {
       <div className="big">{H.fmt(score, 'score')}</div>
       <div>
         <div className="big-label">Opportunity score</div>
-        <div className="big-rank">{p.uoi_rank ? `${H.ordinal(p.uoi_rank)} of ${tracts.features.length} tracts` : ''}</div>
+        <div className="big-rank">{p.uoi_rank ? `${H.ordinal(p.uoi_rank)} of ${ranked} residential tracts` : ''}</div>
       </div>
     </div>
 
@@ -97,6 +114,13 @@ function TractProfile({ feature, tracts, summary, onClose }) {
           ? <><strong>{p.eviction_filings_12mo}</strong> eviction filings in the 12 months to {ev ? new Date(ev.end + 'T12:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'the latest data'}, or <strong>{p.eviction_filing_rate.toFixed(1)}</strong> per 100 renter households{ev ? ` (county: ${ev.county_rate_per_100_renters.toFixed(1)})` : ''}.{p.eviction_vs_baseline ? (p.eviction_vs_baseline >= 1 ? ` Filings are running at ${p.eviction_vs_baseline.toFixed(1)}× the tract’s pre-pandemic level.` : ` Filings are running at ${Math.round(p.eviction_vs_baseline * 100)}% of the tract’s pre-pandemic level.`) : ''}</>
           : <>Too few renter households ({p.renter_households ?? 0}) for a reliable eviction filing rate.</>}
       </p>
+      {p.eviction_expected !== null && p.eviction_expected !== undefined && <p>
+        <span className="swatch" style={{ background: diverge(divergeT(p.eviction_excess_ratio)) }}></span>
+        Its income and housing costs predict about <strong>{Math.round(p.eviction_expected)}</strong> filings.{' '}
+        {p.eviction_excess_class === 'far_above' ? <>It had <strong>{(p.eviction_excess_ratio).toFixed(1)}×</strong> that, far more than those two things explain.</>
+          : p.eviction_excess_class === 'far_below' ? <>It had far fewer.</>
+          : <>Its actual count is within the normal range of that prediction.</>}
+      </p>}
       {gaps.length > 0 && <p>In the bottom quarter of the county for {gaps.length === 1 ? gaps[0] : gaps.slice(0, -1).join(', ') + ' and ' + gaps[gaps.length - 1]}.</p>}
     </div>
 
@@ -114,9 +138,14 @@ function TractProfile({ feature, tracts, summary, onClose }) {
   </section>;
 }
 
-function Findings({ summary, onShowLayer, onShowDistrict }) {
+function Findings({ summary, tracts, onShowLayer, onShowDistrict }) {
   if (!summary) return null;
-  const v = summary.validation, c = summary.clusters, ev = summary.eviction;
+  const v = summary.validation, c = summary.clusters, ev = summary.eviction, x = summary.expected_evictions;
+  // Far-above tracts that an income map would not flag: upper half of the score.
+  const hidden = tracts.features.map(f => f.properties)
+    .filter(p => p.eviction_excess_class === 'far_above' && p.uoi_percentile >= 50)
+    .sort((a, b) => b.uoi_percentile - a.uoi_percentile).map(p => p.area_label);
+  const list = a => a.length <= 1 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
   const worstDistrict = [...summary.districts].sort((a, b) => b.bottom_quartile_tracts - a.bottom_quartile_tracts)[0];
   const totalBottom = summary.districts.reduce((s, d) => s + d.bottom_quartile_tracts, 0);
   const shareFilings = Math.round(worstDistrict.filings_12mo / ev.county_filings_12mo * 100);
@@ -124,9 +153,10 @@ function Findings({ summary, onShowLayer, onShowDistrict }) {
   return <section className="findings">
     <h2>What the data shows</h2>
     <article>
-      <h3>The score lines up with evictions, which it never saw</h3>
-      <p>Tracts in the bottom quarter of the index averaged <strong>{v.bottom_quartile_rate.toFixed(1)}</strong> eviction filings per 100 renter households in the past year, <strong>{v.bottom_vs_top_ratio.toFixed(1)}×</strong> the rate in the top quarter. They account for {Math.round(v.bottom_quartile_share_of_filings * 100)}% of the county’s {ev.county_filings_12mo.toLocaleString()} filings.</p>
-      <button type="button" className="link" onClick={() => onShowLayer('filings')}>Map eviction filings</button>
+      <h3>Evictions don’t simply follow income</h3>
+      <p>Income and housing costs explain only about {Math.round(x.pseudo_r2 * 100)}% of the differences in eviction filings between tracts. {x.far_above_count} tracts filed far more cases than those two predict: <strong>{x.far_above_filings.toLocaleString()}</strong> filings against about {Math.round(x.far_above_expected).toLocaleString()} expected. They hold {Math.round(x.far_above_share_of_renters * 100)}% of the county’s renters but {Math.round(x.far_above_share_of_filings * 100)}% of its filings.</p>
+      {hidden.length > 0 && <p>{hidden.length === 1 ? `One of them, ${hidden[0]}, scores` : `${hidden.length === x.far_above_count ? 'All' : ['', 'One', 'Two', 'Three', 'Four', 'Five'][hidden.length] || hidden.length} of them, ${list(hidden)}, score`} in the top half of the county on opportunity. An income map would never flag {hidden.length === 1 ? 'it' : 'them'}.</p>}
+      <button type="button" className="link" onClick={() => onShowLayer('excess')}>Map evictions vs. expected</button>
     </article>
     <article>
       <h3>Low opportunity is concentrated, not scattered</h3>
@@ -158,9 +188,10 @@ function Methods({ summary, onClose }) {
       <h2 id="methods-title">How this is built</h2>
 
       <h3>What the score measures</h3>
-      <p>The opportunity score averages {scoreInputs.length} measures for each of the county’s {s ? s.tract_count : 176} census tracts, all from the {s ? s.acs_vintage : '2018–2022 ACS 5-year'} estimates except hospital distance:</p>
+      <p>The opportunity score averages {scoreInputs.length} measures for each of the county’s {s ? s.tract_count : 172} residential census tracts, all from the {s ? s.acs_vintage : '2018–2022 ACS 5-year'} estimates except hospital distance:</p>
       <ul className="cols">{scoreInputs.map(l => <li key={l.key}>{l.rawLabel}</li>)}</ul>
       <p>Each measure is rescaled from 0 (worst tract in the county) to 100 (best), flipped where a higher number is worse, then averaged with equal weights. Limited-English households and the estimated eviction risk are mapped for reference but left out of the score.</p>
+      {s && s.special_use_tracts && <p>{s.special_use_tracts.length} special-use tracts ({s.special_use_tracts.map(t => t.label.replace('Special-use area near ', 'near ')).join('; ')}) have few or no permanent residents. They are shown in gray and left out of the score, rankings, clusters and statistics.</p>}
 
       <h3>Clusters</h3>
       <p>Tracts that share a border or a corner count as neighbors. Local Moran’s I compares each tract’s score with its neighbors’ average and tests the result against 999 random reshuffles of the map, so a cluster is only shown when it is unlikely to be chance (p &lt; 0.05).{s ? ` Across the whole county, Moran’s I is ${s.clusters.morans_i.toFixed(2)}.` : ''}</p>
@@ -169,15 +200,20 @@ function Methods({ summary, onClose }) {
       <p>Weekly filing counts by tract come from the Eviction Lab’s Eviction Tracking System for Albuquerque. The map sums the most recent 52 complete weeks{s ? ` (${fmtDate(s.eviction.start)} to ${fmtDate(s.eviction.end)})` : ''} and divides by renter households from the 2022 ACS. Tracts with fewer than {s ? s.eviction.min_renters_for_rate : 50} renter households are left blank because a handful of cases would swing the rate. {s ? `${s.eviction.sealed_or_unlocated_filings_in_full_series.toLocaleString()} filings in the full series were sealed or could not be placed in a tract.` : ''}</p>
 
       {s && <>
-        <h3>Checking the score</h3>
-        <p>Filings are not an input, so they are a fair test. Across tracts, the rank correlation between the score and the filing rate is {s.validation.spearman_index_vs_filing_rate.toFixed(2)}: a moderate link in the expected direction. The narrower eviction-risk estimate, built from four of the same inputs, does about as well ({s.validation.spearman_acs_proxy_vs_filing_rate.toFixed(2)}), which suggests the score’s extra measures describe opportunity broadly rather than eviction risk specifically.</p>
+        <h3>Checking the score: it is mostly income</h3>
+        <p>The score ranks tracts almost exactly as median household income does (rank correlation {s.validation.spearman_score_vs_income.toFixed(2)}). Poverty, SNAP use, housing costs, internet access and education all rise and fall with income, so averaging them mostly measures income again. Well-known indexes such as the CDC’s Social Vulnerability Index share this.</p>
+        <p>Eviction filings are not an input, so they make a fair test. The score’s rank correlation with the filing rate is {s.validation.spearman_index_vs_filing_rate.toFixed(2)}; income alone does slightly better ({s.validation.spearman_income_vs_filing_rate.toFixed(2)}), and once income is known the score adds nothing (rank R² {s.validation.r2_ranks_income_only.toFixed(2)} with income, {s.validation.r2_ranks_income_plus_score.toFixed(2)} with both). The score is still a useful one-number summary of each tract, but the more informative question is the next one.</p>
+
+        <h3>Evictions vs. expected</h3>
+        <p>For each tract with at least {s.eviction.min_renters_for_rate} renter households, a quasi-Poisson regression predicts the number of filings from the log of median household income and the share of households paying 30% or more of income on housing, with the number of renter households as the exposure. Higher income lowers expected filings and higher cost burden raises them.</p>
+        <p>The fit is deliberately modest: income and housing costs explain about {Math.round(s.expected_evictions.pseudo_r2 * 100)}% of the variation (income alone, {Math.round(s.expected_evictions.pseudo_r2_income_only * 100)}%). Filing counts vary about {Math.round(s.expected_evictions.dispersion)} times more than a simple count model assumes, largely because a few large complexes or landlords file in bulk, so a tract is only marked far above or below expected when it sits more than {s.expected_evictions.z_threshold} dispersion-adjusted standard errors from its prediction. {s.expected_evictions.far_above_count} tracts clear that bar on the high side and {s.expected_evictions.far_below_count === 0 ? 'none' : s.expected_evictions.far_below_count} on the low side.</p>
       </>}
 
       <h3>Limits</h3>
       <ul>
         <li>ACS tract estimates carry wide margins of error, especially for small populations. Treat small differences between tracts as noise.</li>
         <li>Equal weights are a choice, not a finding. Rescaling to the county’s best and worst tract means one extreme tract can compress everyone else’s scores; the map colors by rank to compensate.</li>
-        <li>Filings are not completed evictions, and informal evictions never reach court.</li>
+        <li>Filings are not completed evictions, and informal evictions never reach court. A tract far above expected is a lead to investigate, not proof of bad practice: one large complex can account for most of a tract’s cases.</li>
         <li>Hospital distances are from 2017 and measure straight-line access, not travel time.</li>
       </ul>
 
@@ -217,10 +253,10 @@ function Atlas({ tracts, commissionDistricts, summary }) {
   const [conditionB, setConditionB] = useState('top');
 
   const layer = LAYERS.find(l => l.key === layerKey) || LAYERS[0];
-  const effectiveMode = layer.single ? (layer.key === 'filings' ? 'raw' : 'score') : mode;
+  const effectiveMode = layer.single ? (layer.key === 'filings' || layer.key === 'excess' ? 'raw' : 'score') : mode;
   const column = effectiveMode === 'score' ? layer.scoreCol : layer.rawCol;
   const unit = effectiveMode === 'score' ? 'score' : layer.rawUnit;
-  const title = layer.single ? (layer.key === 'filings' ? 'Eviction filings per 100 renters' : layer.label) : effectiveMode === 'score' ? `${layer.shortLabel} score` : layer.rawLabel;
+  const title = layer.single ? (layer.key === 'filings' ? 'Eviction filings per 100 renters' : layer.key === 'excess' ? 'Eviction filings vs. expected' : layer.label) : effectiveMode === 'score' ? `${layer.shortLabel} score` : layer.rawLabel;
   const higherWorse = effectiveMode === 'raw' && layer.rawDirection === 'higher_worse';
   const metricA = H.metricByKey(metricAKey);
   const metricB = H.metricByKey(metricBKey);
@@ -242,8 +278,16 @@ function Atlas({ tracts, commissionDistricts, summary }) {
         .sort((a, b) => order.indexOf(a.feature.properties.lisa_cluster) - order.indexOf(b.feature.properties.lisa_cluster) || a.value - b.value)
         .map((r, i) => ({ ...r, rank: i + 1 }));
     }
+    if (layer.key === 'excess') {
+      // Rank by how many more (or fewer) filings than expected, so big gaps in big tracts lead.
+      return tracts.features
+        .filter(f => !isSpecial(f) && f.properties.eviction_excess !== null && f.properties.eviction_excess !== undefined)
+        .map(f => ({ feature: f, value: f.properties.eviction_excess_ratio, excess: f.properties.eviction_excess }))
+        .sort((a, b) => sortOrder === 'asc' ? a.excess - b.excess : b.excess - a.excess)
+        .map((r, i) => ({ ...r, rank: i + 1 }));
+    }
     return H.rankedSingleLayer(tracts, column, sortOrder).map((r, i) => ({ ...r, rank: i + 1 }));
-  }, [appMode, intersection, tracts, column, sortOrder, layer.categorical]);
+  }, [appMode, intersection, tracts, column, sortOrder, layer.categorical, layer.key]);
 
   const listRows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -258,7 +302,8 @@ function Atlas({ tracts, commissionDistricts, summary }) {
 
   // ---- style for each tract, kept in a ref so resetStyle uses the latest ----
   styleRef.current = (f) => {
-    const base = { color: '#ffffff', weight: 0.5, opacity: 0.9 };
+    const base = { color: '#ffffff', weight: 0.5, opacity: 0.9, dashArray: null };
+    if (isSpecial(f)) return { color: '#9c98a8', weight: 0.8, opacity: 0.8, dashArray: '3 3', fillColor: SPECIAL, fillOpacity: 0.55 };
     if (appMode === 'overlap') {
       const a = H.metricValue(f, metricA), b = H.metricValue(f, metricB);
       const mA = H.conditionMatches(a, conditionA, intersection.thresholdA);
@@ -270,6 +315,11 @@ function Atlas({ tracts, commissionDistricts, summary }) {
       const c = CLUSTERS[f.properties.lisa_cluster] || CLUSTERS.none;
       return { ...base, fillColor: c.color, fillOpacity: 0.85 };
     }
+    if (layer.diverging) {
+      const r = f.properties.eviction_excess_ratio;
+      const far = f.properties.eviction_excess_class === 'far_above';
+      return { ...base, fillColor: diverge(divergeT(r), MISSING), fillOpacity: r === null || r === undefined ? 0.45 : 0.85, ...(far ? { color: '#7d1d33', weight: 2.2, opacity: 1 } : {}) };
+    }
     const v = H.displayValue(f, column);
     return { ...base, fillColor: ramp(H.percentileRank(stats.sorted, v), MISSING), fillOpacity: v === null ? 0.45 : 0.88 };
   };
@@ -277,6 +327,10 @@ function Atlas({ tracts, commissionDistricts, summary }) {
   const tooltipFor = useCallback((f) => {
     const p = f.properties;
     const name = `<strong>${p.area_label || 'Tract ' + p.NAME}</strong><span class="tt-sub">Tract ${p.NAME}</span>`;
+    if (isSpecial(f)) return `${name}Special-use area with few residents.<br>Not scored or ranked.`;
+    if (appMode === 'single' && layer.key === 'excess') return p.eviction_expected === null || p.eviction_expected === undefined
+      ? `${name}Too few renters to model`
+      : `${name}${p.eviction_filings_12mo} filings, about ${Math.round(p.eviction_expected)} expected<br>${H.fmt(p.eviction_excess_ratio, 'ratio')} expected${p.eviction_excess_class === 'far_above' ? ', far above' : ''}`;
     if (appMode === 'overlap') return `${name}${metricA.label}: ${H.fmt(H.metricValue(f, metricA), metricA.unit)}<br>${metricB.label}: ${H.fmt(H.metricValue(f, metricB), metricB.unit)}`;
     if (layer.categorical) return `${name}${(CLUSTERS[p.lisa_cluster] || CLUSTERS.none).label}<br>Score ${H.fmt(H.displayValue(f, 'uoi_score'), 'score')}`;
     const v = H.displayValue(f, column);
@@ -366,13 +420,17 @@ function Atlas({ tracts, commissionDistricts, summary }) {
 
   const listTitle = appMode === 'overlap'
     ? `${intersection.matches.length} tracts meet both conditions`
-    : layer.categorical ? 'Tracts in a significant cluster' : `Tracts by ${title.charAt(0).toLowerCase() + title.slice(1)}`;
+    : layer.categorical ? 'Tracts in a significant cluster'
+    : layer.key === 'excess' ? (sortOrder === 'asc' ? 'Tracts furthest below expected filings' : 'Tracts furthest above expected filings')
+    : `Tracts by ${title.charAt(0).toLowerCase() + title.slice(1)}`;
+  const residentialCount = tracts.features.filter(f => !isSpecial(f)).length;
+  const missingCount = tracts.features.filter(f => !isSpecial(f) && H.displayValue(f, column) === null).length;
 
   return <div className="app">
     <header className="masthead">
       <div className="title">
         <h1>Bernalillo County Opportunity Index</h1>
-        <p className="dek">How the county’s {tracts.features.length} census tracts compare on income, housing, health, access and eviction pressure. Census data from 2018–2022; eviction filings through {summary ? new Date(summary.eviction.end + 'T12:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '2026'}.</p>
+        <p className="dek">How the county’s {residentialCount} residential census tracts compare on income, housing, health, access and eviction pressure. Census data from 2018–2022; eviction filings through {summary ? new Date(summary.eviction.end + 'T12:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '2026'}.</p>
       </div>
       <nav className="actions">
         <button type="button" className="btn-quiet" onClick={() => setMethodsOpen(true)}>How this is built</button>
@@ -429,7 +487,7 @@ function Atlas({ tracts, commissionDistricts, summary }) {
 
         {selectedFeature
           ? <TractProfile key={selectedGeoid} feature={selectedFeature} tracts={tracts} summary={summary} onClose={() => setSelectedGeoid(null)} />
-          : <Findings summary={summary} onShowLayer={showLayer} onShowDistrict={showDistrict} />}
+          : <Findings summary={summary} tracts={tracts} onShowLayer={showLayer} onShowDistrict={showDistrict} />}
       </aside>
 
       <main className="mapwrap">
@@ -448,6 +506,23 @@ function Atlas({ tracts, commissionDistricts, summary }) {
             <ul className="swatches">
               {['low_low', 'high_high', 'low_high', 'high_low', 'none'].map(k => <li key={k}><i style={{ background: CLUSTERS[k].color }}></i>{CLUSTERS[k].label}{summary ? <span className="n">{summary.clusters.counts[k] || 0}</span> : null}</li>)}
             </ul>
+          </> : layer.diverging ? <>
+            <div className="legend-title">{title}</div>
+            <div className="legend-bar" style={{ background: `linear-gradient(to right, ${DIVERGE.join(', ')})` }}></div>
+            <div className="legend-scale">
+              <span className="l">⅓×</span>
+              <span className="m">As expected</span>
+              <span className="r">3×</span>
+            </div>
+            <div className="legend-caption">
+              <span>Fewer</span>
+              <span></span>
+              <span>More</span>
+            </div>
+            <p className="legend-note">Expected from each tract’s income and housing costs.</p>
+            <p className="legend-missing"><i className="outline"></i>Far above expected ({summary ? summary.expected_evictions.far_above_count : ''} tracts)</p>
+            {missingCount > 0 && <p className="legend-missing"><i style={{ background: MISSING }}></i>Too few renters to model ({missingCount})</p>}
+            <p className="legend-missing"><i className="special"></i>Special-use area, not scored</p>
           </> : <>
             <div className="legend-title">{title}</div>
             <div className="legend-bar" style={{ background: `linear-gradient(to right, ${RAMP.join(', ')})` }}></div>
@@ -462,7 +537,8 @@ function Atlas({ tracts, commissionDistricts, summary }) {
               <span>{higherWorse ? 'Worse' : 'Higher'}</span>
             </div>
             <p className="legend-note">Shaded by rank, so each color band holds about the same number of tracts.</p>
-            {stats.sorted.length < tracts.features.length && <p className="legend-missing"><i style={{ background: MISSING }}></i>No estimate ({tracts.features.length - stats.sorted.length} tracts)</p>}
+            {missingCount > 0 && <p className="legend-missing"><i style={{ background: MISSING }}></i>No estimate ({missingCount} tracts)</p>}
+            <p className="legend-missing"><i className="special"></i>Special-use area, not scored</p>
           </>}
         </div>
       </main>
@@ -472,6 +548,7 @@ function Atlas({ tracts, commissionDistricts, summary }) {
           <h2>{listTitle}</h2>
           {appMode === 'overlap' && <p className="list-note">Each row shows {metricA.label.toLowerCase()} above {metricB.label.toLowerCase()}, sorted by how extreme the pair is.</p>}
           {layer.categorical && appMode === 'single' && <p className="list-note">Low-scoring clusters first, then mixed tracts, then high-scoring clusters.</p>}
+          {layer.key === 'excess' && appMode === 'single' && <p className="list-note">Actual filings minus expected filings, with actual as a multiple of expected. Bold rows are far above expected.</p>}
           <input className="search" type="search" placeholder="Find a neighborhood or tract number" value={query} onChange={e => setQuery(e.target.value)} aria-label="Find a neighborhood or tract number" />
           {appMode === 'single' && !layer.categorical && <Segmented label="Sort order" value={sortOrder} onChange={setSortOrder} options={[{ value: 'desc', label: 'Highest first' }, { value: 'asc', label: 'Lowest first' }]} />}
         </div>
@@ -484,6 +561,9 @@ function Atlas({ tracts, commissionDistricts, summary }) {
             let right;
             if (appMode === 'overlap') {
               right = <div className="vals"><span>{H.fmt(row.a, metricA.unit)}</span><span>{H.fmt(row.b, metricB.unit)}</span></div>;
+            } else if (layer.key === 'excess') {
+              const far = p.eviction_excess_class === 'far_above';
+              right = <div className={far ? 'vals far' : 'vals'}><span className="num">{row.excess >= 0 ? '+' : '−'}{Math.abs(Math.round(row.excess))}</span><span className="sub">{p.eviction_filings_12mo} vs {Math.round(p.eviction_expected)}, {H.fmt(row.value, 'ratio')}</span></div>;
             } else if (layer.categorical) {
               const c = CLUSTERS[p.lisa_cluster];
               right = <div className="vals"><span className="num"><i className="dot" style={{ background: c.color }} title={c.label}></i>{H.fmt(row.value, 'score')}</span></div>;

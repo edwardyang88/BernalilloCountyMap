@@ -10,8 +10,15 @@ Runs after bern_uoi_pipeline.py and adds what the ACS indicators alone can't tel
    queen contiguity, 999 conditional permutations) to separate real geographic
    clusters of low opportunity from one-off tracts.
 3. County rank, percentile, and commission district for each tract.
-4. A validation check: does the index (built only from ACS inputs) line up with an
-   outcome it never saw, the eviction filing rate?
+4. A validation check: does the index line up with an outcome it never saw (eviction
+   filings), and does it tell you anything that median income alone doesn't?
+5. Expected vs. actual evictions: a quasi-Poisson model predicts each tract's filings
+   from its income and housing cost burden, then flags tracts filing far more (or far
+   fewer) cases than those two things explain.
+
+Special-use census tracts (codes 9800-9899: Kirtland Air Force Base, parks, open space)
+have few or no residents. They are flagged, left unscored and kept out of every ranking
+and statistic, and the score is rescaled over residential tracts only.
 
 Writes:
     data/tracts.json                         (web app GeoJSON, new fields added)
@@ -44,6 +51,26 @@ MIN_RENTERS_FOR_RATE = 50       # below this a filing rate is too noisy to show
 PERMUTATIONS = 999
 ALPHA = 0.05
 SEED = 20221
+EXCESS_Z = 2.0                  # quasi-Poisson z beyond which a tract is "far" from expected
+
+# Census reserves tract codes 9800-9899 for special land use (bases, parks, airports).
+SPECIAL_USE_LABELS = {"35001980000": "Kirtland Air Force Base"}
+
+# Same inputs and directions as bern_uoi_pipeline.py: (raw column, normalized column, higher_is_better)
+SCORE_INPUTS = [
+    ("pct_broadband", "norm_broadband", True),
+    ("pct_uninsured", "norm_uninsured", False),
+    ("pct_rent_burdened", "norm_rent_burdened", False),
+    ("pct_poverty", "norm_poverty", False),
+    ("median_hh_income", "norm_income", True),
+    ("pct_disability", "norm_disability", False),
+    ("pct_hs_or_higher", "norm_hs_or_higher", True),
+    ("pct_snap", "norm_snap", False),
+    ("unemployment_rate", "norm_unemployment", False),
+    ("pct_no_vehicle", "norm_vehicle_access", False),
+    ("hospital_distance_mi", "norm_hospital_access", False),
+]
+REFERENCE_INPUTS = [("pct_lep", "norm_language_access", False)]
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +204,61 @@ def spearman(a, b):
     return float(np.corrcoef(a, b)[0, 1])
 
 
+def is_special_use(props):
+    try:
+        return 9800 <= float(props["NAME"]) < 9900
+    except (TypeError, ValueError):
+        return False
+
+
+def minmax(s):
+    lo, hi = s.min(), s.max()
+    return (s - lo) / (hi - lo) if hi > lo else s * 0 + 0.5
+
+
+def rescore(df, residential):
+    """Rebuild normalized inputs and the score over residential tracts only."""
+    out = {}
+    for raw, norm, better in SCORE_INPUTS + REFERENCE_INPUTS:
+        v = pd.to_numeric(df[raw], errors="coerce").where(residential)
+        n = minmax(v)
+        out[norm] = n if better else 1 - n
+    out = pd.DataFrame(out, index=df.index)
+    out["uoi_score"] = out[[n for _, n, _ in SCORE_INPUTS]].mean(axis=1)
+    risk = pd.concat([minmax(pd.to_numeric(df[c], errors="coerce").where(residential))
+                      for c in ["pct_rent_burdened", "pct_poverty", "pct_snap", "unemployment_rate"]], axis=1).mean(axis=1)
+    out["eviction_risk_score"] = risk
+    out["eviction_resilience_score"] = 1 - risk
+    return out.where(residential)
+
+
+def quasi_poisson(y, X, offset):
+    """Poisson regression by IRLS with a log link and offset; returns coefficients, fitted means,
+    dispersion (Pearson chi2 / df) and deviance pseudo-R2."""
+    X = np.column_stack([np.ones(len(y)), X])
+    b = np.zeros(X.shape[1])
+    b[0] = np.log(y.sum() / np.exp(offset).sum())
+    for _ in range(100):
+        eta = X @ b + offset
+        mu = np.exp(eta)
+        z = eta - offset + (y - mu) / mu
+        b_new = np.linalg.solve(X.T @ (mu[:, None] * X), X.T @ (mu * z))
+        if np.max(np.abs(b_new - b)) < 1e-10:
+            b = b_new
+            break
+        b = b_new
+    mu = np.exp(X @ b + offset)
+    phi = float(np.sum((y - mu) ** 2 / mu) / (len(y) - X.shape[1]))
+
+    def deviance(m):
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return 2 * np.sum(np.where(y > 0, y * np.log(y / m), 0.0) - (y - m))
+
+    null_mu = np.exp(offset) * y.sum() / np.exp(offset).sum()
+    pseudo_r2 = 1 - deviance(mu) / deviance(null_mu)
+    return b, mu, phi, float(pseudo_r2)
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -229,6 +311,47 @@ def enrich():
 
     # --- 1. Eviction filings ------------------------------------------------
     ev, window = eviction_filings(geoids)
+
+    # --- 1a. Expected vs. actual filings ---------------------------------
+    evm = ev.copy()
+    evm["income"] = [p.get("median_hh_income") for p in props]
+    evm["burden"] = [p.get("pct_rent_burdened") for p in props]
+    evm["special"] = [is_special_use(p) for p in props]
+    m = evm[(~evm["special"]) & (evm["renter_households"] >= MIN_RENTERS_FOR_RATE)
+            & evm["income"].notna() & evm["burden"].notna() & (evm["income"] > 0)]
+    y = m["filings_12mo"].to_numpy(float)
+    Xm = np.column_stack([np.log(m["income"].to_numpy(float)), m["burden"].to_numpy(float)])
+    beta, mu, phi, pseudo_r2 = quasi_poisson(y, Xm, np.log(m["renter_households"].to_numpy(float)))
+    _, _, _, pseudo_r2_income = quasi_poisson(y, Xm[:, :1], np.log(m["renter_households"].to_numpy(float)))
+    evm["expected"] = np.nan
+    evm.loc[m.index, "expected"] = mu
+    evm["excess"] = evm["filings_12mo"] - evm["expected"]
+    evm["excess_ratio"] = evm["filings_12mo"] / evm["expected"]
+    evm["excess_z"] = evm["excess"] / np.sqrt(phi * evm["expected"])
+    def excess_class(z):
+        if pd.isna(z):
+            return None
+        return "far_above" if z >= EXCESS_Z else "far_below" if z <= -EXCESS_Z else "as_expected"
+    evm["excess_class"] = evm["excess_z"].map(excess_class)
+
+    # --- 1b. Special-use tracts and rescoring ------------------------------
+    special = pd.Series([is_special_use(p) for p in props])
+    raw = pd.DataFrame(props)
+    scored = rescore(raw, ~special)
+    for i, p in enumerate(props):
+        p["special_use"] = bool(special[i])
+        if special[i]:
+            g = p["GEOID"]
+            label = p.get("area_label") or f"Tract {p['NAME']}"
+            if g in SPECIAL_USE_LABELS:
+                label = SPECIAL_USE_LABELS[g]
+            elif not label.startswith("Special-use area"):
+                label = f"Special-use area near {label}"
+            p["area_label"] = label
+            p["tract_label"] = f"{label} (Tract {p['NAME']})"
+        for col in scored.columns:
+            v = scored.at[i, col]
+            p[col] = None if pd.isna(v) else float(v)
 
     # --- 2. Rank / percentile ---------------------------------------------
     score = pd.Series([p.get("uoi_score") for p in props], dtype=float) * 100
@@ -299,12 +422,22 @@ def enrich():
         p["lisa_p"] = clean(p_full[i], 3)
         p["commission_district"] = district_of[i]
         p["neighbor_count"] = len(nbrs[i])
+        x = evm.loc[p["GEOID"]]
+        p["eviction_expected"] = clean(x["expected"], 1)
+        p["eviction_excess"] = clean(x["excess"], 1)
+        p["eviction_excess_ratio"] = clean(x["excess_ratio"], 2)
+        p["eviction_excess_z"] = clean(x["excess_z"], 2)
+        p["eviction_excess_class"] = x["excess_class"]
+        if p["special_use"]:
+            p["eviction_filing_rate"] = None
+            p["eviction_vs_baseline"] = None
 
     with open(TRACTS_PATH, "w") as f:
         json.dump(tracts, f, separators=(",", ":"))
 
     # --- 6. Summary + validation ------------------------------------------
-    df = pd.DataFrame(props)
+    df_all = pd.DataFrame(props)
+    df = df_all[~df_all["special_use"]].copy()
     df["score"] = df["uoi_score"] * 100
     both = df.dropna(subset=["score", "eviction_filing_rate"])
     rho = spearman(both["score"], both["eviction_filing_rate"])
@@ -319,6 +452,27 @@ def enrich():
 
     # Same check for the old ACS-only eviction proxy, so the two can be compared.
     proxy_rho = spearman(both["eviction_risk_score"], both["eviction_filing_rate"]) if "eviction_risk_score" in both else None
+
+    # Is the score just income? Compare it with median household income alone.
+    inc = df.dropna(subset=["score", "median_hh_income"])
+    rho_score_income = spearman(inc["score"], inc["median_hh_income"])
+    both_inc = both.dropna(subset=["median_hh_income"])
+    rho_income_filings = spearman(both_inc["median_hh_income"], both_inc["eviction_filing_rate"])
+    qi = pd.qcut(both_inc["median_hh_income"], 4, labels=["q1", "q2", "q3", "q4"])
+    by_qi = both_inc.groupby(qi, observed=True).agg(filings=("eviction_filings_12mo", "sum"), renters=("renter_households", "sum"))
+    by_qi["rate"] = by_qi["filings"] / by_qi["renters"] * 100
+    # Rank regression: does the score add anything once income is known?
+    yr = both_inc["eviction_filing_rate"].rank().to_numpy()
+    X1 = np.column_stack([np.ones(len(yr)), both_inc["median_hh_income"].rank()])
+    X2 = np.column_stack([X1, both_inc["score"].rank()])
+    def r2(X):
+        b = np.linalg.lstsq(X, yr, rcond=None)[0]
+        return 1 - ((yr - X @ b) ** 2).sum() / ((yr - yr.mean()) ** 2).sum()
+    r2_income, r2_income_score = r2(X1), r2(X2)
+
+    ex = df.dropna(subset=["eviction_excess_class"])
+    far_above = ex[ex["eviction_excess_class"] == "far_above"].sort_values("eviction_excess", ascending=False)
+    far_below = ex[ex["eviction_excess_class"] == "far_below"].sort_values("eviction_excess")
 
     clusters = df["lisa_cluster"].value_counts().to_dict()
     low_low = df[df["lisa_cluster"] == "low_low"]
@@ -344,6 +498,7 @@ def enrich():
     summary = {
         "generated": date.today().isoformat(),
         "tract_count": int(len(df)),
+        "tract_count_all": int(len(df_all)),
         "acs_vintage": "2018-2022 ACS 5-year",
         "score": {
             "min": round(float(df["score"].min()), 1),
@@ -364,7 +519,40 @@ def enrich():
             "top_quartile_rate": round(float(high_q["rate"]), 2),
             "bottom_vs_top_ratio": round(float(low_q["rate"] / high_q["rate"]), 1),
             "bottom_quartile_share_of_filings": round(bottom_q_share, 3),
+            "spearman_score_vs_income": round(rho_score_income, 3),
+            "spearman_income_vs_filing_rate": round(rho_income_filings, 3),
+            "income_bottom_vs_top_ratio": round(float(by_qi.loc["q1", "rate"] / by_qi.loc["q4", "rate"]), 1),
+            "r2_ranks_income_only": round(float(r2_income), 3),
+            "r2_ranks_income_plus_score": round(float(r2_income_score), 3),
         },
+        "expected_evictions": {
+            "model": "quasi-Poisson: filings ~ log(median household income) + % cost-burdened households, offset log(renter households)",
+            "tracts_modeled": int(len(ex)),
+            "coef_log_income": round(float(beta[1]), 3),
+            "coef_cost_burden_per_point": round(float(beta[2]), 4),
+            "dispersion": round(phi, 1),
+            "pseudo_r2": round(pseudo_r2, 3),
+            "pseudo_r2_income_only": round(pseudo_r2_income, 3),
+            "z_threshold": EXCESS_Z,
+            "far_above_count": int(len(far_above)),
+            "far_below_count": int(len(far_below)),
+            "far_above_filings": int(far_above["eviction_filings_12mo"].sum()),
+            "far_above_expected": round(float(far_above["eviction_expected"].sum()), 1),
+            "far_above_share_of_renters": round(float(far_above["renter_households"].sum() / df["renter_households"].sum()), 3),
+            "far_above_share_of_filings": round(float(far_above["eviction_filings_12mo"].sum() / df["eviction_filings_12mo"].sum()), 3),
+            "far_above_top": [
+                {"area": r.area_label, "tract": r.NAME, "filings": int(r.eviction_filings_12mo), "expected": round(float(r.eviction_expected), 0)}
+                for r in far_above.head(5).itertuples()
+            ],
+            "far_below_top": [
+                {"area": r.area_label, "tract": r.NAME, "filings": int(r.eviction_filings_12mo), "expected": round(float(r.eviction_expected), 0)}
+                for r in far_below.head(3).itertuples()
+            ],
+        },
+        "special_use_tracts": [
+            {"geoid": r.GEOID, "tract": r.NAME, "label": r.area_label}
+            for r in df_all[df_all["special_use"]].itertuples()
+        ],
         "clusters": {
             "morans_i": round(moran_i, 3),
             "morans_p": round(moran_p, 3),
@@ -393,15 +581,20 @@ def enrich():
         "unemployment_rate": "unemployment_rate", "pct_no_vehicle": "pct_no_vehicle",
         "pct_lep": "pct_limited_english", "hospital_distance_mi": "miles_to_hospital",
     }
-    out = df[[c for c in cols if c in df.columns]].rename(columns=cols)
+    cols.update({"special_use": "special_use", "eviction_expected": "eviction_filings_expected",
+                 "eviction_excess_ratio": "eviction_actual_vs_expected", "eviction_excess_class": "eviction_vs_expected"})
+    out = df_all[[c for c in cols if c in df_all.columns]].rename(columns=cols)
     out["opportunity_score"] = (out["opportunity_score"] * 100).round(1)
-    out = out.sort_values("rank")
+    out = out.sort_values(["special_use", "rank"])
     out.to_csv(DOWNLOAD_CSV, index=False, float_format="%.4g")
 
     print(f"Moran's I = {moran_i:.3f} (p = {moran_p:.3f})")
     print(f"LISA clusters: {clusters}")
     print(f"Spearman(index, filing rate) = {rho:.3f};  ACS proxy = {proxy_rho:.3f}")
     print(f"Bottom-quartile filing rate {low_q['rate']:.2f} vs top {high_q['rate']:.2f} per 100 renters")
+    print(f"Score vs income rho = {rho_score_income:.3f}; income vs filings rho = {rho_income_filings:.3f}; rank R2 income {r2_income:.3f} -> +score {r2_income_score:.3f}")
+    print(f"Expected-evictions model: pseudo-R2 {pseudo_r2:.3f} (income only {pseudo_r2_income:.3f}), dispersion {phi:.1f}; "
+          f"{len(far_above)} tracts far above expected, {len(far_below)} far below")
     print(f"Wrote {TRACTS_PATH}, {SUMMARY_PATH}, {DOWNLOAD_CSV}")
     return summary
 
