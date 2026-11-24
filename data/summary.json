@@ -1,0 +1,97 @@
+{
+  "generated": "2026-11-24",
+  "tract_count": 176,
+  "acs_vintage": "2018-2022 ACS 5-year",
+  "score": {
+    "min": 3.5,
+    "median": 71.1,
+    "max": 93.1
+  },
+  "eviction": {
+    "start": "2025-05-11",
+    "end": "2026-05-09",
+    "weeks": 52,
+    "sealed_or_unlocated_filings_in_full_series": 527,
+    "county_filings_12mo": 7653,
+    "county_baseline_12mo": 7257.133,
+    "county_rate_per_100_renters": 7.43,
+    "county_vs_baseline": 1.05,
+    "tracts_with_rate": 169,
+    "min_renters_for_rate": 50
+  },
+  "validation": {
+    "spearman_index_vs_filing_rate": -0.383,
+    "spearman_acs_proxy_vs_filing_rate": 0.416,
+    "bottom_quartile_rate": 9.76,
+    "top_quartile_rate": 5.05,
+    "bottom_vs_top_ratio": 1.9,
+    "bottom_quartile_share_of_filings": 0.451
+  },
+  "clusters": {
+    "morans_i": 0.465,
+    "morans_p": 0.001,
+    "permutations": 999,
+    "alpha": 0.05,
+    "counts": {
+      "none": 127,
+      "high_high": 30,
+      "low_low": 16,
+      "low_high": 2,
+      "high_low": 1
+    },
+    "low_low_top_areas": [
+      "West Mesa / To'hajiilee area",
+      "La Mesa Community Improvement",
+      "South Los Altos",
+      "Southwest Mesa area",
+      "Trumbull Village"
+    ]
+  },
+  "districts": [
+    {
+      "district": 1,
+      "tracts": 37,
+      "mean_score": 68.2,
+      "bottom_quartile_tracts": 9,
+      "low_low_cluster_tracts": 3,
+      "filings_12mo": 1249,
+      "filing_rate": 6.66
+    },
+    {
+      "district": 2,
+      "tracts": 32,
+      "mean_score": 62.5,
+      "bottom_quartile_tracts": 15,
+      "low_low_cluster_tracts": 6,
+      "filings_12mo": 721,
+      "filing_rate": 5.51
+    },
+    {
+      "district": 3,
+      "tracts": 37,
+      "mean_score": 63.5,
+      "bottom_quartile_tracts": 17,
+      "low_low_cluster_tracts": 7,
+      "filings_12mo": 3093,
+      "filing_rate": 9.33
+    },
+    {
+      "district": 4,
+      "tracts": 33,
+      "mean_score": 78.7,
+      "bottom_quartile_tracts": 0,
+      "low_low_cluster_tracts": 0,
+      "filings_12mo": 1216,
+      "filing_rate": 6.55
+    },
+    {
+      "district": 5,
+      "tracts": 37,
+      "mean_score": 73.2,
+      "bottom_quartile_tracts": 3,
+      "low_low_cluster_tracts": 0,
+      "filings_12mo": 1374,
+      "filing_rate": 7.09
+    }
+  ]
+}

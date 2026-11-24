@@ -702,6 +702,9 @@ def build_bern_uoi(refresh: bool = True) -> gpd.GeoDataFrame:
 
 def main():
     build_bern_uoi(refresh=True)
+    # Add measured eviction filings, spatial clusters, ranks and districts for the web app.
+    from bern_enrich import enrich
+    enrich()
 
 
 if __name__ == "__main__":
