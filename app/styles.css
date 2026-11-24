@@ -233,9 +233,16 @@ button, select { font: inherit; }
   height: 9px; width: 200px; border-radius: 1px;
 }
 .atlas-map-key .key-scale {
-  display: flex; justify-content: space-between; width: 200px;
+  position: relative; height: 13px; width: 200px;
   font-family: "IBM Plex Mono", monospace; font-size: 10px;
   color: var(--ink); margin-top: 5px; font-variant-numeric: tabular-nums;
+}
+.atlas-map-key .key-scale span { position: absolute; top: 0; white-space: nowrap; }
+.atlas-map-key .key-scale .l { left: 0; }
+.atlas-map-key .key-scale .m { left: 50%; transform: translateX(-50%); }
+.atlas-map-key .key-scale .r { right: 0; }
+.atlas-map-key .key-note {
+  font-size: 10px; color: var(--ink-mute); margin-top: 6px; font-style: italic;
 }
 .atlas-map-key .key-caption {
   display: flex; justify-content: space-between; width: 200px;

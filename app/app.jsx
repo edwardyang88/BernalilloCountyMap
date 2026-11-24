@@ -46,7 +46,8 @@ function Atlas({ tracts, commissionDistricts }) {
 
   useEffect(() => {
     if (!mapRef.current) {
-      mapRef.current = L.map('map', { scrollWheelZoom: true, zoomControl: true, attributionControl: true });
+      mapRef.current = L.map('map', { scrollWheelZoom: true, zoomControl: false, attributionControl: true });
+      L.control.zoom({ position: 'topright' }).addTo(mapRef.current);
       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png?key=cb1_5f3d_1_13c8f8b90363ab05c3448a43', { maxZoom: 19, attribution: '© CARTO · OpenStreetMap', subdomains: 'abcd'      }).addTo(mapRef.current);
     }
     if (layerRef.current) layerRef.current.remove();
@@ -75,7 +76,7 @@ function Atlas({ tracts, commissionDistricts }) {
       layerRef.current = L.geoJSON(tracts, {
         style: (f) => {
           const v = H.displayValue(f, column);
-          return { color: '#1c2a3e', weight: 0.3, fillColor: atlasRamp(v, stats.min, stats.max, '#e6ecf2'), fillOpacity: v === null ? 0.35 : 0.86 };
+          return { color: '#1c2a3e', weight: 0.3, fillColor: atlasRamp(H.percentileRank(stats.sorted, v), 0, 1, '#e6ecf2'), fillOpacity: v === null ? 0.35 : 0.86 };
         },
         onEachFeature: (f, lyr) => {
           const p = f.properties;
@@ -88,7 +89,7 @@ function Atlas({ tracts, commissionDistricts }) {
 
     mapRef.current.fitBounds(layerRef.current.getBounds(), { padding: [16, 16] });
     setTimeout(() => mapRef.current && mapRef.current.invalidateSize(), 50);
-  }, [tracts, column, effectiveMode, layer.rawDirection, stats.min, stats.max, appMode, metricAKey, conditionA, metricBKey, conditionB, intersection.thresholdA, intersection.thresholdB]);
+  }, [tracts, column, effectiveMode, layer.rawDirection, stats, appMode, metricAKey, conditionA, metricBKey, conditionB, intersection.thresholdA, intersection.thresholdB]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -247,13 +248,16 @@ function Atlas({ tracts, commissionDistricts }) {
           <div className="key-header"><span className="key-metric">{title}</span></div>
           <div className="key-bar" style={{ background: `linear-gradient(to right, ${atlasRampStops.join(', ')})` }}></div>
           <div className="key-scale">
-            <span>{H.fmt(stats.min, unit)}</span>
-            <span>{H.fmt(stats.max, unit)}</span>
+            <span className="l">{H.fmt(stats.min, unit)}</span>
+            <span className="m">{H.fmt(stats.median, unit)}</span>
+            <span className="r">{H.fmt(stats.max, unit)}</span>
           </div>
           <div className="key-caption">
             <span>{higherWorse ? 'better' : effectiveMode === 'score' ? 'low' : 'lower'}</span>
+            <span>median</span>
             <span>{higherWorse ? 'worse' : effectiveMode === 'score' ? 'high' : 'higher'}</span>
           </div>
+          <div className="key-note">shaded by rank among tracts</div>
         </div> : <div className="atlas-map-key">
           <div className="key-header"><span className="key-metric">conditions</span></div>
           <div className="key-items">

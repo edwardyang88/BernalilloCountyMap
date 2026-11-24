@@ -111,9 +111,23 @@ window.BernHelpers = (function () {
 
   function singleLayerStats(rows) {
     const vals = rows.map(r => r.value).sort((a, b) => a - b);
-    if (!vals.length) return { min: 0, max: 0, avg: 0 };
-    return { min: vals[0], max: vals[vals.length - 1], avg: vals.reduce((s, v) => s + v, 0) / vals.length };
+    if (!vals.length) return { min: 0, max: 0, avg: 0, median: 0, sorted: [] };
+    return { min: vals[0], max: vals[vals.length - 1], avg: vals.reduce((s, v) => s + v, 0) / vals.length, median: quantile(vals, 0.5), sorted: vals };
   }
 
-  return { asNumber, isScoreColumn, displayValue, fmt, metricByKey, metricValue, quantile, conditionMatches, conditionText, makeRamp, intersectionAnalysis, rankedSingleLayer, singleLayerStats };
+  // Where a value sits in the distribution, 0 (lowest tract) to 1 (highest tract).
+  // Ties share the midpoint of their ranks. Used for color so one outlier can't wash out the map.
+  function percentileRank(sorted, value) {
+    if (value === null || !Number.isFinite(value) || !sorted.length) return null;
+    if (sorted.length === 1) return 0.5;
+    let lo = 0, hi = sorted.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (sorted[m] < value) lo = m + 1; else hi = m; }
+    const first = lo;
+    hi = sorted.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (sorted[m] <= value) lo = m + 1; else hi = m; }
+    const last = lo - 1;
+    return ((first + last) / 2) / (sorted.length - 1);
+  }
+
+  return { asNumber, isScoreColumn, displayValue, fmt, metricByKey, metricValue, quantile, conditionMatches, conditionText, makeRamp, intersectionAnalysis, rankedSingleLayer, singleLayerStats, percentileRank };
 })();
