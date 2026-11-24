@@ -46,8 +46,7 @@ function Atlas({ tracts, commissionDistricts }) {
   useEffect(() => {
     if (!mapRef.current) {
       mapRef.current = L.map('map', { scrollWheelZoom: true, zoomControl: true, attributionControl: true });
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19, attribution: '© CARTO · OpenStreetMap', subdomains: 'abcd'
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png?key=YOUR_KEY', {        maxZoom: 19, attribution: '© CARTO · OpenStreetMap', subdomains: 'abcd'
       }).addTo(mapRef.current);
     }
     if (layerRef.current) layerRef.current.remove();
